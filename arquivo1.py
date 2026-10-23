@@ -21,3 +21,16 @@ class Paciente:
             "telefone": self.telefone,
             "email": self.email
         }
+class ProfissionalSaude:
+    def __init__(
+        self,
+        nome,
+        especialidade,
+        turno,
+        id_profissional=None
+    ):
+        self.id_profissional = id_profissional
+        self.nome = nome
+        self.especialidade = especialidade
+        self.turno = turno
+    
