@@ -42,3 +42,32 @@ class ProfissionalSaude:
         }
     def atende_no_turno(self, turno):
         return self.turno.lower() == turno.lower()
+from datetime import datetime
+class Agendamento:
+    def __init__(
+        self,
+        paciente,
+        profissional,
+        data,
+        horario,
+        status="Agendado",
+        id_agendamento=None
+    ):
+        self.id_agendamento = id_agendamento
+        self.paciente = paciente
+        self.profissional = profissional
+        self.data = data
+        self.horario = horario
+        self.status = status
+    def cancelar(self):
+        self.status = "Cancelado"
+    def confirmar(self):
+        self.status = "Confirmado"
+    def validar_data(self):
+        try:
+            data_agendamento = datetime.strptime(
+                self.data, "%Y-%m-%d"
+            )
+            return data_agendamento.date() >= datetime.now().date()
+        except ValueError:
+            return False
