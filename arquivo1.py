@@ -71,27 +71,3 @@ class Agendamento:
             return data_agendamento.date() >= datetime.now().date()
         except ValueError:
             return False     
-from models.paciente import Paciente
-from models.profissional import ProfissionalSaude
-from models.agendamento import Agendamento
-paciente = Paciente(
-    "Maria Silva",
-    "2026001",
-    "Informática para Internet"
-)
-profissional = ProfissionalSaude(
-    "Ana Souza",
-    "Enfermagem",
-    "Tarde"
-)
-agendamento = Agendamento(
-    paciente,
-    profissional,
-    "2026-11-10",
-    "14:00"
-)
-print(paciente.to_dict())
-print(profissional.to_dict())
-print("Data válida:", agendamento.validar_data())
-agendamento.confirmar()
-print("Status:", agendamento.status)
