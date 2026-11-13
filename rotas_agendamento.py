@@ -141,3 +141,54 @@ def api_horarios():
     if not any(s["livre"] for s in slots):
         return jsonify({"bloqueado": "Não há mais horários livres nesse dia com esse profissional.", "slots": slots})
     return jsonify({"bloqueado": None, "slots": slots})
+    @app.route("/aluno/marcar", methods=["GET", "POST"])
+@aluno_required
+def aluno_marcar():
+    with get_db().cursor() as cur:
+        grupos = montar_grupos(cur)
+
+        if request.method == "POST":
+            f = request.form
+            tipo, g, prof = achar_profissional(grupos, f.get("profissional_id"))
+            if tipo != f.get("tipo"):
+                prof = None
+            motivo, horario = f.get("motivo", "").strip(), f.get("horario", "")
+            try:
+                dia = datetime.strptime(f.get("data", ""), "%Y-%m-%d").date()
+            except ValueError:
+                dia = None
+            erro = None
+            if not prof:
+                erro = "Escolha o tipo de atendimento e o profissional."
+            elif not dia or dia < agora().date():
+                erro = "Escolha uma data a partir de hoje."
+            elif motivo_bloqueio(dia):
+                erro = f"{dia:%d/%m/%Y}: {motivo_bloqueio(dia)}. Escolha um dia útil do calendário acadêmico."
+            elif not motivo:
+                erro = "Descreva o motivo do atendimento."
+            else:
+                slot = next((x for x in horarios_do_dia(cur, g, prof, dia) if x["v"] == horario), None)
+                if not slot:
+                    erro = "Escolha um horário disponível."
+                elif not slot["livre"]:
+                    erro = ("Esse horário já passou. Escolha outro horário." if slot["motivo"] == "já passou" else
+                            "Esse horário já foi solicitado por outro aluno. Escolha outro horário.")
+            if erro:
+                flash(erro, "erro")
+                return redirect(url_for("aluno_marcar"))
+            cur.execute("INSERT INTO solicitacoes (aluno_id, aluno_nome, motivo, profissional_id, tipo, data_preferencial, "
+                        "horario, em_aula) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                        (session["aluno_id"], session["nome"], motivo[:300], prof["id"], tipo, dia, horario,
+                         int(bool(f.get("em_aula")))))
+            return redirect(url_for("aluno_marcar", enviada=cur.lastrowid))
+
+        enviada = None
+        if request.args.get("enviada", "").isdigit():
+            cur.execute("SELECT s.*, u.nome AS prof_nome FROM solicitacoes s LEFT JOIN usuarios u ON u.id = s.profissional_id "
+                        "WHERE s.id = %s AND s.aluno_id = %s", (request.args["enviada"], session["aluno_id"]))
+            enviada = cur.fetchone()
+    hoje = agora().date()
+    sugestao = proximo_dia_util(hoje)
+    return render_template("aluno_marcar.html", grupos=grupos, enviada=enviada, hoje=hoje.isoformat(),
+                           sugestao=sugestao.isoformat() if sugestao else hoje.isoformat(),
+                           limite=ULTIMO_DIA_CALENDARIO.isoformat())
