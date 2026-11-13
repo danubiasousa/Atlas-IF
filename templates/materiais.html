@@ -1,0 +1,121 @@
+{% extends "base_app.html" %}
+{% set ativo = 'materiais' %}
+{% block titulo %}Materiais · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head">
+  <div>
+    <h1>Materiais e Medicamentos</h1>
+    <p>{{ total }} {{ 'item' if total == 1 else 'itens' }} no cadastro</p>
+  </div>
+  <button type="button" class="btn-primario" id="novo-item">{{ icon('plus', 16) }}Novo Item</button>
+</div>
+
+<section class="mat-stats">
+  <div class="card mat-stat"><b class="vermelho">{{ contagem['Crítico'] }}</b><span>Em falta</span></div>
+  <div class="card mat-stat"><b class="laranja">{{ contagem['Baixo'] }}</b><span>Estoque baixo</span></div>
+  <div class="card mat-stat"><b class="verde">{{ contagem['Normal'] }}</b><span>Estoque normal</span></div>
+</section>
+
+<form class="card filtros" method="get" action="{{ url_for('materiais') }}">
+  <div class="busca-hist">{{ icon('search', 16) }}<input type="search" name="q" value="{{ q }}" placeholder="Buscar material ou medicamento..."></div>
+  <select name="categoria" onchange="this.form.submit()">
+    <option value="">Todas</option>
+    {% for c in categorias %}<option value="{{ c }}" {{ 'selected' if c == cat }}>{{ c }}</option>{% endfor %}
+  </select>
+  <select name="status" onchange="this.form.submit()">
+    <option value="">Todos</option>
+    {% for s in ['Crítico', 'Baixo', 'Normal'] %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s }}</option>{% endfor %}
+  </select>
+</form>
+
+<section class="card tabela-card">
+  <table class="tabela tabela-mat">
+    <thead><tr><th>Item</th><th>Categoria</th><th class="c">Qtd. atual</th><th class="c">Mín.</th><th>Estoque</th><th>Validade</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for it in itens %}
+      {% set cor = {'Crítico': 'critico', 'Baixo': 'baixo', 'Normal': 'normal'}[it.status] %}
+      <tr>
+        <td><div class="item-cel"><strong>{{ it.item }}</strong><small>{{ it.unidade }}{% if it.fornecedor %} · {{ it.fornecedor }}{% endif %}</small></div></td>
+        <td>{% if it.categoria %}<span class="turma-tag cat-tag">{{ it.categoria }}</span>{% else %}—{% endif %}</td>
+        <td class="c qtd {{ cor }}">{{ it.quantidade }}</td>
+        <td class="c mono min">{{ it.ideal }}</td>
+        <td><div class="est-barra {{ cor }}"><i style="width: {{ it.pct }}%"></i></div><span class="est-pct mono">{{ it.pct }}%</span></td>
+        <td class="mono val {{ 'vencido' if it.validade and it.validade.strftime('%Y-%m') < hoje_mes }}" {% if it.validade and it.validade.strftime('%Y-%m') < hoje_mes %}title="Validade vencida"{% endif %}>{{ it.validade.strftime('%Y-%m') if it.validade else '—' }}</td>
+        <td><span class="badge st-{{ cor }}">{{ it.status }}</span></td>
+        <td class="acoes">
+          <button type="button" class="btn-sec peq editar"
+            data-id="{{ it.id }}" data-item="{{ it.item }}" data-categoria="{{ it.categoria or '' }}"
+            data-unidade="{{ it.unidade }}" data-fornecedor="{{ it.fornecedor or '' }}"
+            data-quantidade="{{ it.quantidade }}" data-ideal="{{ it.ideal }}"
+            data-validade="{{ it.validade.strftime('%Y-%m') if it.validade else '' }}">Editar</button>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8"><p class="vazio">{{ 'Nenhum item encontrado.' if filtrado else 'Nenhum item cadastrado ainda.' }}</p></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<dialog id="modal-item" class="modal">
+  <form method="post" id="form-item" action="{{ url_for('novo_material') }}" autocomplete="off">
+    <header><h3 id="modal-item-titulo">Cadastrar Novo Item</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
+    <div class="modal-corpo">
+      <div class="campo"><label for="i-item">Nome do item</label><input type="text" id="i-item" name="item" required maxlength="80" placeholder="Ex.: Dipirona 500mg"></div>
+      <div class="grid g2">
+        <div class="campo"><label for="i-cat">Categoria</label>
+          <select id="i-cat" name="categoria">
+            <option value="">Selecione</option>
+            {% for c in categorias %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select></div>
+        <div class="campo"><label for="i-unid">Unidade</label><input type="text" id="i-unid" name="unidade" list="unidades" maxlength="20" placeholder="un., caixas, frascos...">
+          <datalist id="unidades"><option value="un."><option value="caixas"><option value="frascos"><option value="pares"><option value="rolos"><option value="embalagens"><option value="ampolas"></datalist></div>
+      </div>
+      <div class="campo"><label for="i-forn">Fornecedor</label><input type="text" id="i-forn" name="fornecedor" maxlength="80" placeholder="Ex.: Farmácia Central"></div>
+      <div class="grid g3">
+        <div class="campo"><label for="i-qtd">Qtd. atual</label><input type="number" id="i-qtd" name="quantidade" class="mono" min="0" required placeholder="0"></div>
+        <div class="campo"><label for="i-min">Estoque mín.</label><input type="number" id="i-min" name="ideal" class="mono" min="0" required placeholder="0"></div>
+        <div class="campo"><label for="i-val">Validade</label><input type="month" id="i-val" name="validade" class="mono"></div>
+      </div>
+      <p class="nota">Crítico: abaixo de 50% do mínimo · Baixo: abaixo do mínimo · Normal: igual ou acima do mínimo. A validade é opcional (equipamentos, por exemplo, não vencem).</p>
+    </div>
+    <footer>
+      <button type="submit" class="btn-excluir" id="excluir-item" formnovalidate hidden>Excluir</button>
+      <span class="esp"></span>
+      <button type="button" class="btn-sec fechar">Cancelar</button>
+      <button type="submit" class="btn-primario" id="salvar-item">Salvar Item</button>
+    </footer>
+  </form>
+</dialog>
+
+<script>
+  (() => {
+    const m = document.getElementById('modal-item'), f = document.getElementById('form-item');
+    const urlNovo = "{{ url_for('novo_material') }}";
+    const urlEditar = "{{ url_for('editar_material', item_id=0) }}";
+    const urlExcluir = "{{ url_for('excluir_material', item_id=0) }}";
+    const campos = {item: 'i-item', categoria: 'i-cat', unidade: 'i-unid', fornecedor: 'i-forn', quantidade: 'i-qtd', ideal: 'i-min', validade: 'i-val'};
+    const btnExcluir = document.getElementById('excluir-item');
+
+    function abrir(d) {
+      f.reset();
+      const edit = !!d;
+      f.action = edit ? urlEditar.replace('/0/', `/${d.id}/`) : urlNovo;
+      document.getElementById('modal-item-titulo').textContent = edit ? 'Editar Item' : 'Cadastrar Novo Item';
+      document.getElementById('salvar-item').textContent = edit ? 'Salvar Alterações' : 'Salvar Item';
+      btnExcluir.hidden = !edit;
+      if (edit) {
+        btnExcluir.formAction = urlExcluir.replace('/0/', `/${d.id}/`);
+        for (const [k, id] of Object.entries(campos)) document.getElementById(id).value = d[k] ?? '';
+      }
+      m.showModal();
+    }
+    document.getElementById('novo-item').onclick = () => abrir(null);
+    document.querySelectorAll('.editar').forEach(b => b.onclick = () => abrir({...b.dataset}));
+    btnExcluir.onclick = e => { if (!confirm('Excluir este item do cadastro?')) e.preventDefault(); };
+    m.querySelectorAll('.fechar').forEach(b => (b.onclick = () => m.close()));
+    m.addEventListener('click', e => { if (e.target === m) m.close(); });
+  })();
+</script>
+{% endblock %}
