@@ -18,6 +18,8 @@ REGRAS_SENHA = [
     ("esp", "Um caractere especial (! @ # $ % & * ...)"),
 ]
 
+
+
 SENHA_PADRAO_SERVIDOR = "setorsaude2026"
 
 
@@ -51,8 +53,15 @@ def erros_senha(senha, usuario=""):
 def mensagem_erros(erros):
     return "A senha precisa " + ", ".join(erros) + "." if erros else ""
 
+<<<<<<< HEAD
+
+
+def normalizar_email(texto):
+    e = (texto or "").strip().lower()
+=======
     def normalizar_email(texto):
                     e = (texto or "").strip().lower()
+>>>>>>> 44fbe0a3fec3323ca2727b144a30c291febaf1a3
     return e if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e) and len(e) <= 120 else None
 
 
@@ -75,6 +84,8 @@ def mascarar_email(e):
 def mascarar_telefone(t):
     d = re.sub(r"\D", "", t)
     return f"({d[:2]})•••••-{d[-4:]}"
+
+
 
 def gerar_codigo():
     return f"{secrets.randbelow(1_000_000):06d}"
@@ -122,7 +133,7 @@ def enviar_sms(telefone, texto):
     try:
         urllib.request.urlopen(req, timeout=15)
         return "enviado"
-    except Exception as exc:  
+    except Exception as exc: 
         print(f"[ATLAS IF] Falha ao enviar SMS: {exc}", flush=True)
         return None
 
