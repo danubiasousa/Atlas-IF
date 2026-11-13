@@ -1,0 +1,53 @@
+1) Abra o XAMPP e inicie o MySQL.
+2) pip install -r requirements.txt
+3) Coloque as imagens em static/img/:
+   logo-if.png (logo do IFPI, branca) e logo-atlas.png (emblema do estetoscópio)
+4) python app.py   ->  http://127.0.0.1:5000  (o projeto está dividido em nucleo.py + rotas_*.py; rode sempre o app.py)
+
+O banco "atlas_if" e as tabelas são criados automaticamente
+(ou importe o schema.sql no phpMyAdmin).
+
+Configuração padrão do XAMPP: host localhost, usuário root, senha vazia.
+Se o seu MySQL tiver outra senha, defina antes de rodar (Windows):
+   set DB_PASSWORD=sua_senha
+   python app.py
+
+LOGIN (v2.6)
+- Profissionais digitam só "nome.sobrenome"; o sistema completa com @ifpi.edu.br.
+  Alunos digitam a matrícula.
+- Senha inicial padronizada:
+    servidores -> setorsaude2026
+    alunos     -> data de nascimento tudo junto (ex.: 19042009); sem data cadastrada, a matrícula
+  No primeiro login a troca é obrigatória: a pessoa cria a própria senha e cadastra e-mail e telefone.
+- Regras da senha: mínimo 6 caracteres, letra maiúscula, letra minúscula, número e caractere especial.
+- Quem já criou a própria senha antes continua com ela.
+- "Minha conta" (menu lateral) permite trocar a senha e os contatos de recuperação.
+
+ESQUECI A SENHA (código de 6 dígitos, vale 1 minuto, 5 tentativas; depois do código vem a tela da nova senha)
+Sem configuração, o código aparece no TERMINAL onde o app.py está rodando (modo de teste).
+Para enviar de verdade, defina antes de rodar:
+   E-mail (SMTP):  set SMTP_HOST=smtp.gmail.com
+                   set SMTP_PORT=587
+                   set SMTP_USER=conta@gmail.com
+                   set SMTP_PASSWORD=senha_de_app
+                   set SMTP_FROM=conta@gmail.com
+   SMS:            set SMS_WEBHOOK_URL=https://endereco-do-provedor
+                   set SMS_TOKEN=token_do_provedor   (opcional)
+
+CALENDÁRIO
+Os dias sem atendimento (sábados, domingos, feriados, pontos facultativos e recesso)
+ficam em calendario.py. Para 2027, acrescente as datas lá e ajuste ULTIMO_DIA_CALENDARIO.
+
+DECLARAÇÃO DE COMPARECIMENTO
+Marque "Aluno(a) veio durante o horário de aula" na etapa 1 do atendimento. Ao finalizar, a declaração
+abre já preenchida (aluno, data, horário de início e fim e o profissional que atendeu) para imprimir
+ou salvar em PDF. Também fica disponível no Histórico. O sistema não emite atestado.
+
+ACESSAR PELO CELULAR (sem hospedar)
+1) Celular e computador no MESMO Wi-Fi.
+2) Rode python app.py. O terminal mostra algo como:
+      - No celular (mesmo Wi-Fi):  http://192.168.0.15:5000
+3) Digite esse endereço no navegador do celular.
+4) Se o Windows perguntar sobre o Firewall, clique em "Permitir acesso" (rede privada).
+   Se não abrir: Painel de Controle > Firewall do Windows > Permitir um aplicativo > marque o Python.
+Fora do Wi-Fi (4G) só funciona hospedando o sistema ou usando um túnel (ngrok, Cloudflare Tunnel).
