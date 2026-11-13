@@ -102,3 +102,40 @@ def materiais():
     return render_template("materiais.html", itens=mostrados, total=len(itens), contagem=contagem,
                            categorias=categorias, q=q, cat=cat, status=status,
                            filtrado=bool(q or cat or status), hoje_mes=date.today().strftime("%Y-%m"))
+
+                           @app.route("/materiais/novo", methods=["POST"])
+@profissional_required
+def novo_material():
+    d, erro = ler_material(request.form)
+    if erro:
+        flash(erro, "erro")
+        return redirect(url_for("materiais"))
+    with get_db().cursor() as cur:
+        cur.execute(f"INSERT INTO estoque ({', '.join(d)}) VALUES ({', '.join(['%s'] * len(d))})", list(d.values()))
+    flash(f"Item “{d['item']}” cadastrado com sucesso.")
+    return redirect(url_for("materiais"))
+
+
+@app.route("/materiais/<int:item_id>/editar", methods=["POST"])
+@profissional_required
+def editar_material(item_id):
+    d, erro = ler_material(request.form)
+    if erro:
+        flash(erro, "erro")
+        return redirect(url_for("materiais"))
+    with get_db().cursor() as cur:
+        cur.execute(f"UPDATE estoque SET {', '.join(c + '=%s' for c in d)} WHERE id=%s", [*d.values(), item_id])
+    flash(f"Item “{d['item']}” atualizado.")
+    return redirect(url_for("materiais"))
+
+
+@app.route("/materiais/<int:item_id>/excluir", methods=["POST"])
+@profissional_required
+def excluir_material(item_id):
+    with get_db().cursor() as cur:
+        cur.execute("SELECT item FROM estoque WHERE id=%s", (item_id,))
+        row = cur.fetchone()
+        if row:
+            cur.execute("DELETE FROM estoque WHERE id=%s", (item_id,))
+            flash(f"Item “{row['item']}” excluído.")
+    return redirect(url_for("materiais"))
