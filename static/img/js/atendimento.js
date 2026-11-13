@@ -248,3 +248,72 @@
     oculto.value = `${txt} – ${r[0] === 'ok' ? 'adequado' : r[1].split(': ')[1] || nomes[r[0]]}`.slice(0, 60);
     return r;
   }
+
+   const ROTULO = { ok: '✓ Normal', atencao: '⚠ Atenção', alerta: '⛔ Alerta' };
+  function pintar(el, msg, r) {
+    const caixa = el.closest('.com-unidade');
+    caixa.classList.add('s-' + r[0]);
+    msg.classList.add(r[0]);
+    const curto = r[1].split(':').slice(-1)[0].replace(/ \(.*\)/, '').replace(/\.$/, '').trim();
+    const titulo = r[1].split(':')[0].replace(/ \(.*\)/, '').replace(/\.$/, '');
+    msg.innerHTML = '';
+    const tag = document.createElement('span'); tag.className = 'tag-nivel ' + r[0]; tag.textContent = ROTULO[r[0]];
+    const t = document.createElement('span');
+    t.textContent = r[0] === 'ok' ? '' : ' ' + (titulo.startsWith('IMC') ? curto : titulo);
+    msg.append(tag, t);
+  }
+
+  function classificarSinais() {
+    const avisos = [];
+    form.querySelectorAll('[data-sinal]').forEach(el => {
+      const caixa = el.closest('.com-unidade'), msg = document.getElementById('msg-' + el.id);
+      caixa.classList.remove('s-ok', 's-atencao', 's-alerta');
+      msg.className = 'msg-sinal'; msg.textContent = '';
+      const fn = CLASSIFICAR[el.id];
+      if (!fn || !el.value || !el.checkValidity()) return;
+      const r = fn(el.value.trim());
+      if (!r) return;
+      pintar(el, msg, r);
+      if (r[0] !== 'ok') avisos.push(r);
+    });
+    const ver = document.getElementById('imc-ver');
+    if (ver) {
+      const msgImc = document.getElementById('msg-imc-ver');
+      ver.closest('.com-unidade').classList.remove('s-ok', 's-atencao', 's-alerta');
+      msgImc.className = 'msg-sinal'; msgImc.textContent = '';
+      const ri = classificarIMC();
+      if (ri) {
+        pintar(ver, msgImc, ri);
+        document.getElementById('peso').closest('.com-unidade').classList.add('s-' + ri[0]);
+        document.getElementById('altura').closest('.com-unidade').classList.add('s-' + ri[0]);
+        if (ri[0] !== 'ok') avisos.push(ri);
+      }
+    }
+    const painel = document.getElementById('alertas-sinais');
+    if (!painel) return;
+    const ul = painel.querySelector('ul');
+    ul.innerHTML = '';
+    avisos.sort((a, b) => (a[0] === 'alerta' ? -1 : 1) - (b[0] === 'alerta' ? -1 : 1)).forEach(([nivel, texto]) => {
+      const li = document.createElement('li'); li.className = nivel;
+      const tag = document.createElement('span'); tag.className = 'tag-nivel ' + nivel; tag.textContent = ROTULO[nivel];
+      li.append(tag, ' ' + texto); ul.appendChild(li);
+    });
+    painel.hidden = !avisos.length;
+    painel.classList.toggle('grave', avisos.some(a => a[0] === 'alerta'));
+  }
+  form.querySelectorAll('[data-sinal]').forEach(el => el.addEventListener('blur', () => {
+    if (el.dataset.sinal === 'pa') el.value = el.value.replace(/\/$/, '');
+    conferirSinal(el); classificarSinais();
+  }));
+  classificarSinais();
+  ['sexo', 'data_nascimento', 'data'].forEach(i => document.getElementById(i).addEventListener('change', classificarSinais));
+  document.addEventListener('aluno-selecionado', () => setTimeout(classificarSinais, 0));
+
+  form.querySelectorAll('[data-nenhum]').forEach(b => (b.onclick = () => {
+    const el = document.getElementById(b.dataset.nenhum);
+    el.value = b.dataset.valor || b.textContent.trim();
+    el.setCustomValidity('');
+  }));
+
+  mostrar(0);
+})();
