@@ -1,0 +1,14 @@
+<div class="solic-lista">
+{% for s in solicitacoes %}
+  {% set st = status_solic[s.status] %}
+  <div class="solic">
+    <div class="grow">
+      <strong>{{ s.tipo or 'Atendimento' }}</strong>
+      <small>{% if s.data_preferencial %}{{ s.data_preferencial|dataBR }} às {{ s.horario|horario }}{% endif %}{% if s.prof_nome %} · {{ s.prof_nome }}{% endif %}</small>
+      <small class="motivo">{{ s.motivo }}</small>
+      {% if s.status == 'recusada' and s.justificativa %}<small class="just">Justificativa: {{ s.justificativa }}</small>{% endif %}
+    </div>
+    <span class="badge {{ st[1] }}">{{ st[0] }}</span>
+  </div>
+{% endfor %}
+</div>
