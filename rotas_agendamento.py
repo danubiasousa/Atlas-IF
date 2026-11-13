@@ -192,3 +192,21 @@ def aluno_marcar():
     return render_template("aluno_marcar.html", grupos=grupos, enviada=enviada, hoje=hoje.isoformat(),
                            sugestao=sugestao.isoformat() if sugestao else hoje.isoformat(),
                            limite=ULTIMO_DIA_CALENDARIO.isoformat())
+
+                           @app.route("/aluno/atendimentos")
+@aluno_required
+def aluno_atendimentos():
+    tipo, data = (request.args.get(k, "").strip() for k in ("tipo", "data"))
+    where, args = ["a.aluno_id = %s"], [session["aluno_id"]]
+    if tipo in ("Atendimento", "Retorno", "Encaminhamento"):
+        where.append("a.tipo = %s"); args.append(tipo)
+    if data:
+        where.append("DATE(a.data_hora) = %s"); args.append(data)
+    with get_db().cursor() as cur:
+        cur.execute("SELECT a.*, u.nome AS prof_nome, u.cargo AS prof_cargo FROM atendimentos a "
+                    "LEFT JOIN usuarios u ON u.id = a.profissional_id WHERE " + " AND ".join(where) +
+                    " ORDER BY a.data_hora DESC", args)
+        registros = cur.fetchall()
+        solicitacoes = minhas_solicitacoes(cur, 10)
+    return render_template("aluno_atendimentos.html", registros=registros, solicitacoes=solicitacoes,
+                           status_solic=STATUS_SOLIC, tipo=tipo, data=data)
