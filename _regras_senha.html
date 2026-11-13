@@ -1,0 +1,4 @@
+<ul class="regras" data-regras>
+  {% for chave, texto in regras %}<li data-regra="{{ chave }}">{{ texto }}</li>{% endfor %}
+  <li data-regra="igual">As duas senhas são iguais</li>
+</ul>
