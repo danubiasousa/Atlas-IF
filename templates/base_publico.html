@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#005a34">
+  <title>{% block titulo %}ATLAS IF{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <main class="login">
+
+    <section class="brand">
+      <div class="logos">
+        <img class="logo-if" src="{{ url_for('static', filename='img/logo-if.png') }}" alt="Instituto Federal do Piauí">
+        <span class="logos-divider"></span>
+        <div class="logo-atlas">
+          <img src="{{ url_for('static', filename='img/logo-atlas.png') }}" alt="Logo ATLAS IF">
+          <span>ATLAS IF</span>
+        </div>
+      </div>
+
+      <h1 class="brand-title">ATLAS <span>IF</span></h1>
+      <p class="brand-desc">
+        Acompanhamento Tecnológico de Logística e Atendimentos à Saúde do Instituto Federal do Piauí.
+      </p>
+      <p class="brand-campus">Campus Paulistana · Setor Saúde</p>
+    </section>
+
+    <section class="form-panel">
+      <div class="form-box">
+        {% block caixa %}{% endblock %}
+      </div>
+    </section>
+
+  </main>
+  <script src="{{ url_for('static', filename='js/senha.js') }}"></script>
+</body>
+</html>
