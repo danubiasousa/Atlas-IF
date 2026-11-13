@@ -302,3 +302,58 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*a, **kw)
     return wrapper
+
+    def profissional_required(f):
+    """Telas do setor de saúde: o aluno é enviado ao portal dele."""
+    @wraps(f)
+    def wrapper(*a, **kw):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        if session.get("perfil") == "aluno":
+            return redirect(url_for("aluno_painel"))
+        return f(*a, **kw)
+    return wrapper
+
+
+def aluno_required(f):
+    """Portal do aluno: o profissional é enviado ao painel dele."""
+    @wraps(f)
+    def wrapper(*a, **kw):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        if session.get("perfil") != "aluno":
+            return redirect(url_for("painel"))
+        return f(*a, **kw)
+    return wrapper
+
+
+def supervisor_required(f):
+    """Gestão de usuários: só profissionais com nível Supervisor."""
+    @wraps(f)
+    @profissional_required
+    def wrapper(*a, **kw):
+        if session.get("nivel") != "Supervisor":
+            flash("Apenas supervisores podem gerenciar usuários.", "erro")
+            return redirect(url_for("painel"))
+        return f(*a, **kw)
+    return wrapper
+
+
+def criar_login_aluno(cur, aluno_id, matricula, nome, nascimento=None):
+    """Login do aluno: usuário = matrícula (minúscula); senha inicial = data de nascimento (ddmmaaaa).
+
+    Devolve a senha inicial (ou None se o login já existia)."""
+    usuario = matricula.lower()
+    cur.execute("SELECT id FROM usuarios WHERE usuario = %s", (usuario,))
+    row = cur.fetchone()
+    senha = None
+    if row:
+        uid = row["id"]
+    else:
+        senha = senha_aluno(nascimento, matricula)
+        cur.execute("INSERT INTO usuarios (usuario, nome, cargo, senha_hash, perfil) VALUES (%s,%s,'Aluno',%s,'aluno')",
+                    (usuario, nome, generate_password_hash(senha)))
+        uid = cur.lastrowid
+        print(f"[ATLAS IF] Login criado para {nome}: usuário {usuario} · senha inicial {senha}", flush=True)
+    cur.execute("UPDATE alunos SET usuario_id = %s WHERE id = %s", (uid, aluno_id))
+    return senha
