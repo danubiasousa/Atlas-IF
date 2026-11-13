@@ -1,1 +1,4 @@
-Flask
+Flask>=3.0
+PyMySQL>=1.1
+cryptography>=42.0
+tzdata>=2024.1
