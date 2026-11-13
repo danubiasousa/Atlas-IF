@@ -1,0 +1,102 @@
+{% extends "base_publico.html" %}
+{% block titulo %}ATLAS IF – Recuperar senha{% endblock %}
+{% block caixa %}
+        <h2>Esqueceu a senha?</h2>
+        <ol class="etapas">
+          {% for chave, rot in [('usuario','Usuário'),('canal','Envio'),('codigo','Código'),('senha','Nova senha')] %}
+          <li class="{{ 'atual' if etapa == chave }}">{{ loop.index }}. {{ rot }}</li>
+          {% endfor %}
+        </ol>
+
+        {% include "_mensagens_publico.html" %}
+
+        {% if etapa == 'usuario' %}
+        <p class="subtitle">Informe seu usuário para receber um código de recuperação.</p>
+        <form method="post" action="{{ url_for('esqueci_senha') }}">
+          <label for="usuario">Usuário</label>
+          <div class="campo-sugestoes">
+          <input type="text" id="usuario" name="usuario" value="{{ usuario }}" placeholder="nome.sobrenome@ifpi.edu.br" data-sugestoes="{{ url_for('sugestoes_usuario') }}" aria-autocomplete="list"
+                 autocapitalize="none" spellcheck="false" required class="sem-margem">
+            <ul class="sugestoes" role="listbox" hidden></ul>
+          </div>
+          <p class="dica">Digite só <b>nome.sobrenome</b>. Alunos: matrícula ou o e-mail cadastrado.</p>
+          <button type="submit">Continuar</button>
+        </form>
+
+        {% elif etapa == 'canal' %}
+        <p class="subtitle">{{ user.nome.split()[0] }}, para onde enviamos o código de 6 dígitos?</p>
+        <form method="post" action="{{ url_for('enviar_codigo_rec') }}">
+          <div class="canais">
+            {% for valor, rotulo, destino in canais %}
+            <label class="canal"><input type="radio" name="canal" value="{{ valor }}" {{ 'checked' if loop.first }}>
+              <span><b>{{ rotulo }}</b><small>{{ destino }}</small></span></label>
+            {% endfor %}
+          </div>
+          <button type="submit">Enviar código</button>
+        </form>
+
+        {% elif etapa == 'codigo' %}
+        <p class="subtitle">Digite o código de 6 dígitos enviado para <b>{{ destino }}</b>.</p>
+        <div class="validade" id="validade" data-expira="{{ expira }}">
+          <span id="validade-txt">{% if expira %}O código vence em <b id="expira-relogio">--:--</b>{% elif bloqueado %}Código bloqueado depois de 5 tentativas erradas. Peça um novo.{% else %}O código venceu. Peça um novo.{% endif %}</span>
+        </div>
+        <form method="post" action="{{ url_for('codigo_rec') }}" autocomplete="off">
+          <label for="codigo">Código</label>
+          <input type="text" id="codigo" name="codigo" class="codigo" inputmode="numeric" maxlength="6" pattern="\d{6}"
+                 title="Digite os 6 números do código" placeholder="000000" autocomplete="one-time-code" required autofocus
+                 oninput="this.value=this.value.replace(/\D/g,'')">
+          <button type="submit" id="btn-verificar">Verificar código</button>
+        </form>
+        <form method="post" action="{{ url_for('enviar_codigo_rec') }}" class="form-reenviar">
+          <button type="submit" class="btn-reenviar" id="btn-reenviar" data-espera="{{ espera }}" {{ 'disabled' if espera }}>
+            Reenviar código{% if espera %} em <span>{{ espera }}</span>s{% endif %}
+          </button>
+        </form>
+        <a class="link-esqueci centro" href="{{ url_for('enviar_codigo_rec') }}">Enviar por outro canal</a>
+        <script>
+          (() => {
+            const mmss = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+            const btn = document.getElementById('btn-reenviar'), val = document.getElementById('validade');
+            const verificar = document.getElementById('btn-verificar');
+            let espera = +btn.dataset.espera, expira = +val.dataset.expira;
+            function vencer() {
+              val.classList.add('vencido');
+              if (!{{ 'true' if bloqueado else 'false' }})
+                document.getElementById('validade-txt').textContent = 'O código venceu. Clique em “Reenviar código”.';
+              verificar.disabled = true;
+            }
+            const rel = document.getElementById('expira-relogio');
+            if (rel) rel.textContent = mmss(expira);
+            if (!expira) vencer();
+            setInterval(() => {
+              if (espera > 0) {
+                espera--;
+                btn.disabled = espera > 0;
+                btn.innerHTML = espera > 0 ? `Reenviar código em <span>${espera}</span>s` : 'Reenviar código';
+              }
+              if (expira > 0) {
+                expira--;
+                if (rel) rel.textContent = mmss(expira);
+                if (expira === 0) vencer();
+              }
+            }, 1000);
+          })();
+        </script>
+
+        {% else %}
+        <p class="subtitle">Código confirmado, {{ user.nome.split()[0] }}. Agora escolha a sua nova senha.</p>
+        <form method="post" action="{{ url_for('nova_senha_rec') }}" data-form-senha autocomplete="off">
+          <label for="nova">Nova senha</label>
+          <div class="campo-senha">
+            <input type="password" id="nova" name="nova" autocomplete="new-password" required minlength="6" data-nova autofocus>
+            <button type="button" class="olho" data-olho="nova" aria-label="Mostrar senha">Mostrar</button>
+          </div>
+          <label for="confirma">Confirme a nova senha</label>
+          <input type="password" id="confirma" name="confirma" autocomplete="new-password" required data-confirma>
+          {% include "_regras_senha.html" %}
+          <button type="submit">Salvar nova senha</button>
+        </form>
+        {% endif %}
+
+        <a class="link-esqueci centro" href="{{ url_for('login') }}">Voltar ao login</a>
+{% endblock %}
