@@ -179,3 +179,23 @@ def init_db():
                 [("Álcool 70%", 2, 10, "frascos"), ("Luva M", 5, 20, "pares"),
                  ("Dipirona 500mg", 3, 15, "caixas"), ("Seringa 5ml", 8, 30, "un.")],
             )
+
+             for nome_al, velha, nova in [("Geovane Moura Gomes", "2025120IIPI0003", "2025120IIPI0012"),
+                                     ("Sthefany Kailane Lima de Sousa", "2025120IIPI0014", "2025120IIPI0036"),
+                                     ("Maria Aparecida Coelho de Sousa", "2025120IIPI0021", "2025120IIPI0032")]:
+            cur.execute("UPDATE alunos SET matricula=%s WHERE nome=%s AND matricula=%s", (nova, nome_al, velha))
+        cur.execute("UPDATE alunos SET curso='Técnico em Informática para Internet' WHERE curso IS NULL AND matricula LIKE '2025120IIPI%'")
+        cur.execute("UPDATE alunos SET campus='Paulistana' WHERE campus IS NULL AND matricula LIKE '2025120IIPI%'")
+        cur.execute("UPDATE atendimentos a JOIN alunos al ON al.id = a.aluno_id SET a.matricula = al.matricula")
+        cur.execute("UPDATE atendimentos SET tipo = CASE status WHEN 'Retorno' THEN 'Retorno' "
+                    "WHEN 'Encaminhado' THEN 'Encaminhamento' ELSE 'Atendimento' END")
+        cur.execute("UPDATE atendimentos SET codigo = CONCAT('ATD-', YEAR(data_hora), '-', 1000+id) WHERE codigo IS NULL")
+        cur.execute("UPDATE atendimentos a JOIN alunos al ON al.nome = a.aluno_nome "
+                    "SET a.aluno_id = al.id, a.matricula = al.matricula WHERE a.aluno_id IS NULL")
+        cur.execute("UPDATE atendimentos a JOIN usuarios u ON u.usuario = 'mariana.moura@ifpi.edu.br' "
+                    "SET a.profissional_id = u.id WHERE a.profissional_id IS NULL")
+
+        for col, ddl in {"categoria": "VARCHAR(40) NULL", "fornecedor": "VARCHAR(80) NULL", "validade": "DATE NULL"}.items():
+            cur.execute("SHOW COLUMNS FROM estoque LIKE %s", (col,))
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE estoque ADD COLUMN {col} {ddl}")
