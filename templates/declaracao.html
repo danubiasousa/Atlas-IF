@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Declaração de Comparecimento – {{ a.aluno_nome }}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #e9edf0; font-family: Helvetica, Arial, "Liberation Sans", sans-serif; color: #111; }
+
+    .barra-acoes { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      justify-content: center; padding: 12px 16px; background: #fff; border-bottom: 1px solid #dfe3e6; }
+    .barra-acoes p { flex-basis: 100%; text-align: center; font-size: 13px; color: #0b6b43; }
+    .barra-acoes button, .barra-acoes a { padding: 9px 18px; font: 600 14px Helvetica, Arial, sans-serif; border-radius: 9px;
+      cursor: pointer; text-decoration: none; }
+    .barra-acoes button { color: #fff; background: #2e9e4f; border: 0; }
+    .barra-acoes a { color: #374151; background: #fff; border: 1px solid #d1d5db; }
+
+    .folha { position: relative; width: 210mm; height: 297mm; margin: 18px auto; background: #fff; overflow: hidden;
+      box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+    .faixa { position: absolute; left: 0; right: 0; height: 5.6mm; background: #2e9e4f; }
+    .faixa.topo { top: 0; }
+    .faixa.base { bottom: 0; height: 3.6mm; }
+
+    .cabecalho { position: absolute; top: 10mm; left: 0; right: 0; text-align: center; }
+    .cabecalho img { width: 21.5mm; height: auto; display: block; margin: 0 auto 2.6mm; }
+    .cabecalho .l1 { font-size: 11pt; letter-spacing: .1pt; }
+    .cabecalho .l2 { font-size: 8.8pt; margin-top: .4mm; }
+    .cabecalho .l3 { font-size: 8.8pt; font-weight: bold; margin-top: .4mm; }
+
+    .divisoria { position: absolute; left: 16mm; right: 16mm; }
+    .divisoria.pont { border-top: 1.3px dotted #2e9e4f; }
+    .divisoria.cheia { border-top: 1.4px solid #2e9e4f; }
+
+    h1 { position: absolute; top: 61mm; left: 0; right: 0; text-align: center; font-size: 18.6pt; font-weight: bold; color: #1d5c38; }
+
+    .texto { position: absolute; top: 78.5mm; left: 19.5mm; right: 19.5mm; font-size: 12pt; line-height: 1.78; text-align: justify; }
+    .texto p { text-indent: 12.5mm; }
+    .texto p + p { margin-top: .8mm; font-size: 11pt; line-height: 1.92; }
+
+    .assinatura { position: absolute; top: 179.5mm; left: 0; right: 0; text-align: center; font-size: 10.6pt; line-height: 1.5; }
+    .assinatura .linha { width: 91mm; margin: 0 auto 1.5mm; border-top: .8px solid #111; }
+    .assinatura .nome { font-weight: bold; color: #1d5c38; }
+
+    .aviso-demo { position: absolute; top: 249mm; left: 0; right: 0; text-align: center; font-size: 8.3pt; font-style: italic;
+      color: #555; line-height: 1.5; }
+    .rodape { position: absolute; top: 272.5mm; left: 0; right: 0; text-align: center; }
+    .rodape img { width: 152mm; height: auto; }
+
+    @media print {
+      body { background: #fff; }
+      .barra-acoes { display: none; }
+      .folha { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="barra-acoes">
+    {% if novo %}<p>Atendimento finalizado. A declaração já está preenchida.</p>{% endif %}
+    <button type="button" onclick="window.print()">Imprimir / Salvar em PDF</button>
+    <a href="{{ url_for('historico') }}">Voltar ao histórico</a>
+  </div>
