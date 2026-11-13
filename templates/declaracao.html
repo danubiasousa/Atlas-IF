@@ -62,3 +62,59 @@
     <button type="button" onclick="window.print()">Imprimir / Salvar em PDF</button>
     <a href="{{ url_for('historico') }}">Voltar ao histórico</a>
   </div>
+
+   <main class="folha">
+    <div class="faixa topo"></div>
+
+    <header class="cabecalho">
+      <img src="{{ url_for('static', filename='img/doc/brasao.jpg') }}" alt="Brasão da República">
+      <div class="l1">MINISTÉRIO DA EDUCAÇÃO</div>
+      <div class="l2">Secretaria de Educação Profissional e Tecnológica</div>
+      <div class="l3">Instituto Federal de Educação, Ciência e Tecnologia do Piauí</div>
+    </header>
+    <div class="divisoria pont" style="top: 50.5mm"></div>
+    <div class="divisoria cheia" style="top: 52.6mm"></div>
+
+    <h1>DECLARAÇÃO DE COMPARECIMENTO</h1>
+
+    <section class="texto">
+      <p>Declaro, para os devidos fins, que o(a) aluno(a) <b>{{ a.aluno_nome }}</b>, esteve em atendimento no
+        <b>Setor de Saúde de {{ campus }}</b>, no dia {{ a.data_hora.strftime('%d/%m/%Y') }}, no horário das
+        {{ inicio }} às {{ fim }}.</p>
+      <p>Ressalta-se que este documento comprova exclusivamente o comparecimento ao atendimento no referido setor,
+        não possuindo validade como atestado médico, nem justificando afastamento por motivo de saúde.</p>
+    </section>
+
+    <section class="assinatura">
+      <div class="linha"></div>
+      <div class="nome">{{ a.prof_nome or '' }}</div>
+      <div>{{ a.prof_cargo or '' }}</div>
+      <div>IFPI — Campus {{ campus }}</div>
+    </section>
+
+    <p class="aviso-demo">Documento demonstrativo gerado para apresentação do ATLAS IF.<br>
+      Não constitui documento médico ou institucional válido e não substitui emissão oficial.</p>
+
+    <div class="divisoria pont" style="top: 267.4mm"></div>
+    <footer class="rodape">
+      <img src="{{ url_for('static', filename='img/doc/rodape-ifpi.png') }}"
+           alt="Instituto Federal do Piauí | Paulistana – Rodovia BR 407, KM 05 | Paulistana - PI | www.ifpi.edu.br/paulistana">
+    </footer>
+
+    <div class="faixa base"></div>
+  </main>
+  <script>
+    (() => {
+      const folha = document.querySelector('.folha');
+      const ajustar = () => {
+        folha.style.zoom = '';
+        const escala = Math.min(1, (window.innerWidth - 16) / folha.offsetWidth);
+        folha.style.zoom = escala < 1 ? escala : '';
+      };
+      ajustar(); addEventListener('resize', ajustar);
+      addEventListener('beforeprint', () => (folha.style.zoom = ''));
+      addEventListener('afterprint', ajustar);
+    })();
+  </script>
+</body>
+</html>
