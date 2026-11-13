@@ -44,3 +44,21 @@ def ler_odonto(texto, data_padrao):
                       "procedimento": procedimento, "faces": "" if dente == TODOS_DENTES else faces,
                       "situacao": situacao, "data": data, "observacoes": str(r.get("observacoes", "")).strip() or None})
     return saida
+
+    @app.route("/api/alunos/<int:aluno_id>/odonto")
+@profissional_required
+def api_odonto(aluno_id):
+    with get_db().cursor() as cur:
+        cur.execute("SELECT id, dente, procedimento, faces, situacao, data, observacoes FROM procedimentos_odonto "
+                    "WHERE aluno_id = %s ORDER BY data DESC, id DESC", (aluno_id,))
+        linhas = cur.fetchall()
+    for r in linhas:
+        r["data"] = r["data"].isoformat()
+    return jsonify(linhas)
+
+def classificar_estoque(qtd, minimo):
+    """Normal: qtd >= mínimo · Crítico: menos de 50% do mínimo · Baixo: o resto."""
+    if not minimo or qtd >= minimo:
+        return "Normal", 100
+    pct = int(qtd / minimo * 100 + 0.5)
+    return ("Crítico" if qtd * 2 < minimo else "Baixo"), pct
