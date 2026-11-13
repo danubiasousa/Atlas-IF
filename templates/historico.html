@@ -1,0 +1,50 @@
+{% extends "base_app.html" %}
+{% set ativo = 'historico' %}
+{% block titulo %}Histórico · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head"><div>
+  <h1>Histórico de Atendimentos</h1>
+  <p>{{ registros|length }} {{ 'registro encontrado' if registros|length == 1 else 'registros encontrados' }}</p>
+</div></div>
+
+<form class="card filtros" method="get" action="{{ url_for('historico') }}">
+  <input type="hidden" name="tipo" value="{{ tipo }}">
+  <div class="busca-hist">{{ icon('search', 16) }}<input type="search" name="q" value="{{ q }}" placeholder="Buscar por aluno..."></div>
+  {% for rotulo, valor in [('Todos', ''), ('Atendimento', 'Atendimento'), ('Retorno', 'Retorno'), ('Encaminhamento', 'Encaminhamento')] %}
+    <a class="chip {{ 'ativo' if tipo == valor }}" href="{{ url_for('historico', tipo=valor or None, q=q or None, data=data or None) }}">{{ rotulo }}</a>
+  {% endfor %}
+  <input type="date" name="data" value="{{ data }}" onchange="this.form.submit()">
+</form>
+
+{% for r in registros %}
+<details class="card hist">
+  <summary>
+    <span class="avatar">{{ r.aluno_nome|iniciais }}</span>
+    <div class="grow"><strong>{{ r.aluno_nome }}</strong><small>{{ r.queixa }}</small></div>
+    <div class="tags">
+      <span class="tag {{ r.tipo|lower }}">{{ r.tipo }}</span>
+      <span class="badge {{ {'Concluído':'verde','Retorno':'amarelo','Encaminhado':'azul'}[r.status] }}">{{ r.status }}</span>
+    </div>
+    <span class="mono data-hist">{{ r.data_hora|datahora }}</span>
+    {{ icon('chevron', 16) }}
+  </summary>
+  <div class="detalhes">
+    <p><span>Código</span><b class="mono">{{ r.codigo }}</b></p>
+    <p><span>Matrícula / Turma</span><b class="mono">{{ r.matricula or '—' }} · {{ r.turma or '—' }}</b></p>
+    <p><span>Profissional</span><b>{{ r.prof_nome or '—' }}{% if r.prof_cargo %} – {{ r.prof_cargo }}{% endif %}</b></p>
+    <p><span>Veio em horário de aula</span><b>{{ 'Sim' if r.em_aula else 'Não' }}
+      {% if r.em_aula %}<a class="link-decl" href="{{ url_for('declaracao', atendimento_id=r.id) }}" target="_blank">{{ icon('file', 14) }} Declaração de comparecimento</a>{% endif %}</b></p>
+    {% for rotulo, v in [('Histórico', r.historico), ('Alergias', r.alergias), ('Medicamentos em uso', r.medicamentos_uso), ('Doenças preexistentes', r.doencas), ('Encaminhado por', r.encaminhado_por), ('Procedimentos', r.procedimentos), ('Medicamentos administrados', r.medicamentos_adm), ('Orientações', r.orientacoes), ('Observações', r.observacoes)] %}
+      {% if v %}<p><span>{{ rotulo }}</span><b>{{ v }}</b></p>{% endif %}
+    {% endfor %}
+    {% set sv = [('PA', r.pressao, 'mmHg'), ('FC', r.fc, 'bpm'), ('FR', r.fr, 'irpm'), ('Temp.', r.temperatura, '°C'), ('Sat. O₂', r.saturacao, '%'), ('Peso', r.peso, 'kg'), ('Glicemia', r.glicemia, 'mg/dL')] %}
+    {% if sv|selectattr(1)|list %}
+    <p><span>Sinais vitais</span><b class="mono">{% for n, v, u in sv if v %}{{ n }} {{ v }} {{ u }}{{ ' · ' if not loop.last }}{% endfor %}</b></p>
+    {% endif %}
+  </div>
+</details>
+{% else %}
+<div class="card"><p class="vazio">Nenhum atendimento encontrado.</p></div>
+{% endfor %}
+{% endblock %}
