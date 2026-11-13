@@ -1,0 +1,67 @@
+{% extends "base_app.html" %}
+{% set ativo = 'usuarios' %}
+{% block titulo %}Usuários · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head">
+  <div>
+    <h1>Usuários do Sistema</h1>
+    <p>{{ ativos }} {{ 'ativo' if ativos == 1 else 'ativos' }} de {{ lista|length }} {{ 'cadastrado' if lista|length == 1 else 'cadastrados' }}</p>
+  </div>
+  <button type="button" class="btn-primario" id="novo-usuario">{{ icon('plus', 16) }}Novo Usuário</button>
+</div>
+
+<nav class="abas">
+  <a class="{{ 'ativa' if aba == 'profissionais' }}" href="{{ url_for('usuarios') }}">Profissionais</a>
+  <a class="{{ 'ativa' if aba == 'atividades' }}" href="{{ url_for('usuarios', aba='atividades') }}">Registro de Atividades</a>
+</nav>
+
+{% if aba == 'profissionais' %}
+<section class="card tabela-card">
+  <table class="tabela tabela-usr">
+    <thead><tr><th>Profissional</th><th>Campus</th><th>Perfil</th><th>Último acesso</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for u in lista %}
+      <tr class="{{ 'inativo' if not u.ativo }}">
+        <td><div class="aluno-cel"><span class="avatar">{{ u.nome|iniciais }}</span>
+          <div><strong>{{ u.nome }}</strong><small>{{ u.cargo or '—' }} · {{ u.usuario }}</small></div></div></td>
+        <td class="campus-cel">{{ u.campus or 'Paulistana' }}</td>
+        <td><span class="badge {{ 'azul' if u.nivel == 'Supervisor' else 'verde' }}">{{ u.nivel }}</span></td>
+        <td class="mono ult">{{ u.ultimo|datahora if u.ultimo else '—' }}</td>
+        <td><span class="badge {{ 'verde' if u.ativo else 'vermelho' }}">{{ 'Ativo' if u.ativo else 'Inativo' }}</span></td>
+        <td class="acoes">
+          <button type="button" class="btn-sec peq editar-usr"
+            data-id="{{ u.id }}" data-nome="{{ u.nome }}" data-email="{{ u.usuario }}" data-cargo="{{ u.cargo or '' }}"
+            data-campus="{{ u.campus or '' }}" data-nivel="{{ u.nivel }}" data-siape="{{ u.siape or '' }}">Editar</button>
+          {% if u.id != session['user_id'] %}
+          <form method="post" action="{{ url_for('status_usuario', uid=u.id) }}" data-confirma="{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?">
+            <button type="submit" class="{{ 'btn-perigo' if u.ativo else 'btn-sec' }} peq">{{ 'Desativar' if u.ativo else 'Reativar' }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="card tabela-card">
+  <table class="tabela tabela-usr">
+    <thead><tr><th>Data e hora</th><th>Usuário</th><th>Evento</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for a in atividades %}
+      <tr>
+        <td class="mono ult">{{ a.data_hora|datahora }}</td>
+        <td><div class="aluno-cel"><span class="avatar">{{ (a.nome or a.usuario)|iniciais }}</span>
+          <div><strong>{{ a.nome or 'Usuário não encontrado' }}</strong><small>{{ a.usuario }}</small></div></div></td>
+        <td><span class="badge {{ 'verde' if a.sucesso else 'vermelho' }}">{{ 'Login realizado' if a.sucesso else 'Tentativa de acesso falhou' }}</span></td>
+        <td class="mono ult">{{ a.ip or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4"><p class="vazio">Nenhuma atividade registrada.</p></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<p class="nota">Mostrando os 100 acessos mais recentes.</p>
+{% endif %}
