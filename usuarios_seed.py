@@ -1,0 +1,6 @@
+USUARIOS_INICIAIS = [
+    ('mariana.moura@ifpi.edu.br', 'Mariana Leal de Moura', 'Enfermeira', 'scrypt:32768:8:1$LxUOpFw2y0h6iOCL$1aa6e62b5cd44d6e54b34e49cb3506a8a28cb17e14b3753869a8c6ec97891b01bb863cb50828f00e7767dbf21df6ccc9da0963eaa4695e1f027ffdd733bc81d6'),
+    ('stefany.moreira@ifpi.edu.br', 'Stefany Moreira', 'Técnica em Enfermagem', 'scrypt:32768:8:1$FnbVSCYV7cAdLqAl$150390bb15cf13415c3407718c181a21af222f392730bb4b1563a111b0b913463e31951b58a8d4a47399feedaf170251443638da3a75e60a0dc2817ba74a7829'),
+    ('debora.castro@ifpi.edu.br', 'Débora Laís Castro', 'Dentista', 'scrypt:32768:8:1$feK15IVrgbr9K0BY$612beedb394001f32420ecbaaed09ac88ea9e8fcc0e279321dd3f08177407f38180a35a1c43341d91e6b16c77d804547663af3046108bf097b8fdb8cafcc273f'),
+    ('leonardo.rocha@ifpi.edu.br', 'Leonardo Victor da Luz Rocha', 'Técnico em Saúde Bucal', 'scrypt:32768:8:1$eiM6OWBzmHAjLnqG$f0625ca826146d25383fa60e9e18519d0a4b6da4324dfd6a54922e2e59af221801844b8dd92c4f8a4b02ae9a553f7e71bbcbaac63680ca8bb6c1bc0e0069a4b6'),
+]
