@@ -90,3 +90,74 @@ def novo_atendimento():
         if not sexo:
             flash("Informe o sexo do aluno (usado no cálculo do IMC por idade).", "erro")
             return redirect(url_for("novo_atendimento"))
+
+            if not usa_odonto():
+            faltando = [c for c in ANAMNESE if not dados[c]]
+            erro = ("Preencha todos os campos da anamnese (use “Nenhuma” quando não houver)." if faltando else
+                    next((e for c in REGRAS_SINAIS if (e := erro_sinal(c, dados[c] or ""))), None))
+            if erro:
+                flash(erro, "erro")
+                return redirect(url_for("novo_atendimento"))
+            for c in ("temperatura", "peso"):
+                if dados[c]:
+                    dados[c] = dados[c].replace(",", ".")
+        dados["finalizado_em"] = agora()
+        registros = ler_odonto(f.get("odonto"), dh.date()) if usa_odonto() else []
+        if registros and not dados["procedimentos"]:
+            dados["procedimentos"] = "; ".join(f"{nome_dente(r['dente'])} – {r['procedimento']}" for r in registros)[:600]
+        with get_db().cursor() as cur:
+            cur.execute(f"INSERT INTO atendimentos ({', '.join(dados)}) VALUES ({', '.join(['%s'] * len(dados))})",
+                        list(dados.values()))
+            novo_id = cur.lastrowid
+            if dados["aluno_id"]:   
+                cur.execute("UPDATE alunos SET data_nascimento=%s WHERE id=%s AND data_nascimento IS NULL",
+                            (nasc, dados["aluno_id"]))
+                cur.execute("UPDATE alunos SET sexo=%s WHERE id=%s AND sexo IS NULL", (sexo, dados["aluno_id"]))
+            codigo = f"ATD-{dh.year}-{1000 + novo_id}"
+            cur.execute("UPDATE atendimentos SET codigo=%s WHERE id=%s", (codigo, novo_id))
+            for r in registros:
+                if r["id"]:   
+                    cur.execute("UPDATE procedimentos_odonto SET dente=%s, procedimento=%s, faces=%s, situacao=%s, "
+                                "data=%s, observacoes=%s WHERE id=%s AND aluno_id <=> %s",
+                                (r["dente"], r["procedimento"], r["faces"], r["situacao"], r["data"],
+                                 r["observacoes"], r["id"], dados["aluno_id"]))
+                else:
+                    cur.execute("INSERT INTO procedimentos_odonto (aluno_id, aluno_nome, atendimento_id, dente, "
+                                "procedimento, faces, situacao, data, observacoes, profissional_id) "
+                                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                                (dados["aluno_id"], nome, novo_id, r["dente"], r["procedimento"], r["faces"],
+                                 r["situacao"], r["data"], r["observacoes"], session["user_id"]))
+            if ret:
+                try:
+                    quando_ret = datetime.strptime(f.get("retorno_data", ""), "%Y-%m-%dT%H:%M")
+                except ValueError:
+                    quando_ret = datetime.combine(dh.date() + timedelta(days=1), time(8, 0))
+                dia_ret = proximo_dia_util(quando_ret.date())
+                if dia_ret and dia_ret != quando_ret.date():
+                    flash(f"{quando_ret:%d/%m/%Y}: {motivo_bloqueio(quando_ret.date())}. "
+                          f"O retorno foi remarcado para {dia_ret:%d/%m/%Y}.", "erro")
+                    quando_ret = datetime.combine(dia_ret, quando_ret.time())
+                cur.execute("INSERT INTO retornos (aluno_nome, motivo, data_hora) VALUES (%s,%s,%s)",
+                            (nome, f"Retorno – {queixa}"[:160], quando_ret))
+        flash(f"Atendimento {codigo} finalizado com sucesso.")
+        if dados["em_aula"]:
+            return redirect(url_for("declaracao", atendimento_id=novo_id, novo=1))
+        return redirect(url_for("historico"))
+
+    d = agora()
+    with get_db().cursor() as cur:
+        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 AS n FROM atendimentos")
+        proximo = cur.fetchone()["n"]
+        aluno_pre = None
+        if request.args.get("aluno", "").isdigit():
+            cur.execute("SELECT id, nome, matricula, turma, data_nascimento, sexo FROM alunos WHERE id = %s",
+                        (request.args["aluno"],))
+            aluno_pre = cur.fetchone()
+    return render_template(
+        "atendimento_novo.html", aluno_pre=aluno_pre, procedimentos=PROCEDIMENTOS, sinais=SINAIS, usa_odonto=usa_odonto(),
+        regras_sinais=REGRAS_SINAIS, proc_odonto=PROC_ODONTO, boca_toda=BOCA_TODA,
+        etapas=(["Identificação", "Odontograma", "Orientações"] if usa_odonto() else
+                ["Identificação", "Anamnese", "Sinais Vitais", "Procedimentos", "Orientações"]),
+        codigo=f"ATD-{d.year}-{1000 + proximo}", data_iso=d.strftime("%Y-%m-%d"), hora=d.strftime("%H:%M"),
+        data_extenso=f"{d.day} de {MESES[d.month - 1]} de {d.year} {d:%H:%M}",
+    )
