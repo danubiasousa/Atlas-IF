@@ -12,6 +12,7 @@ body { font-family: 'Inter', system-ui, sans-serif; color: var(--texto); backgro
 
 .login { display: flex; min-height: 100vh; }
 
+
 .brand {
   flex: 1 1 50%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -30,6 +31,7 @@ body { font-family: 'Inter', system-ui, sans-serif; color: var(--texto); backgro
 .brand-title span { color: #7df0b8; }
 .brand-desc { max-width: 360px; font-size: 18px; font-weight: 500; line-height: 1.6; color: rgba(255,255,255,.85); }
 .brand-campus { margin-top: 28px; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,.5); }
+
 
 .form-panel {
   flex: 1 1 50%;
@@ -71,12 +73,14 @@ footer { display: flex; justify-content: space-between; margin-top: 32px; paddin
 .online { display: flex; align-items: center; gap: 6px; }
 .online i { width: 7px; height: 7px; border-radius: 50%; background: #34d399; }
 
+
 @media (max-width: 860px) {
   .login { flex-direction: column; }
   .brand { padding: 40px 24px 70px; }
   .brand-title { font-size: 38px; }
   .form-panel { margin: -30px 0 0; border-radius: 30px 30px 0 0; }
 }
+
 
 .campo-dominio { position: relative; display: flex; align-items: center; margin-bottom: 6px;
   border: 1px solid var(--borda); border-radius: 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
@@ -121,6 +125,8 @@ footer { display: flex; justify-content: space-between; margin-top: 32px; paddin
 input.codigo { font-size: 22px; font-weight: 700; letter-spacing: 10px; text-align: center; }
 @media (max-width: 420px) { .regras { grid-template-columns: 1fr; } }
 
+
+
 .login { height: 100vh; min-height: 0; overflow: hidden; }
 .brand { overflow: hidden; }
 .form-panel { overflow-y: auto; padding: 32px 48px; align-items: safe center; }
@@ -153,6 +159,7 @@ form > button[type=submit]:disabled { opacity: .5; cursor: not-allowed; }
   .form-box { padding: 26px 18px calc(26px + env(safe-area-inset-bottom)); }
   .etapas li { font-size: 11px; padding: 6px 4px; }
 }
+
 
 .campo-sugestoes { position: relative; }
 .sugestoes { position: absolute; z-index: 20; top: 50px; left: 0; right: 0; list-style: none; margin: 0; padding: 6px;

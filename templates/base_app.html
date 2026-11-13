@@ -40,7 +40,7 @@
       {% endif %}
     </nav>
 
-     <div class="side-user">
+    <div class="side-user">
       <div class="user-linha">
         <span class="avatar-lg">{{ session['nome']|iniciais }}</span>
         <div><strong>{{ session['nome'] }}</strong><small>{{ session['cargo'] }}{% if session['perfil'] == 'aluno' and session['turma'] %} · {{ session['turma'] }}{% endif %} · Paulistana</small></div>

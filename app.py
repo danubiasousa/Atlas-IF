@@ -42,4 +42,5 @@ if __name__ == "__main__":
         print(f"   - Neste computador:  http://127.0.0.1:{porta}")
         if ip:
             print(f"   - No celular (mesmo Wi-Fi):  http://{ip}:{porta}\n")
+    
     app.run(host="0.0.0.0", port=porta, debug=True, use_debugger=False)

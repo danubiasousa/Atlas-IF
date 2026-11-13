@@ -36,6 +36,7 @@ DIAS_SEM_ATENDIMENTO = {
 for _d in range(21, 32):
     DIAS_SEM_ATENDIMENTO.setdefault(date(2026, 12, _d), "Recesso natalino")
 
+
 ULTIMO_DIA_CALENDARIO = date(2027, 1, 31)
 
 

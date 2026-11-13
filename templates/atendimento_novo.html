@@ -23,6 +23,7 @@
 
   <form id="form-atend" method="post" action="{{ url_for('novo_atendimento') }}" autocomplete="off">
 
+  
     <section class="card passo" data-step="0">
       <h3>Identificação do Aluno</h3>
       <div class="grid g-aluno">
@@ -62,7 +63,7 @@
     </section>
 
     {% if not usa_odonto %}
-
+    
     <section class="card passo" data-step="1" hidden>
       <h3>Anamnese</h3>
       <p class="nota">Todos os campos são obrigatórios. Quando não houver, use o botão “Nenhuma”.</p>
@@ -83,6 +84,7 @@
                  pattern="[A-Za-zÀ-ÿ\s.,\(\)\/\-]{3,}" title="Use só letras (ex.: Prof. João, Coordenação) ou “Procura espontânea”." data-filtro="texto"></div>
       </div>
     </section>
+
 
     <section class="card passo" data-step="2" hidden>
       <h3>Sinais Vitais</h3>
@@ -110,6 +112,7 @@
         <small>Referências para adolescentes e adultos em repouso. Não substituem a avaliação do profissional.</small></p>
     </section>
 
+    
     <section class="card passo" data-step="3" hidden>
       <h3>Procedimentos</h3>
       <label class="rotulo-solto">Procedimentos realizados</label>
@@ -129,6 +132,7 @@
     </section>
 
 {% else %}
+
     <section class="card passo" id="passo-odonto" hidden>
       <div class="odonto-topo">
         <div><h3>Odontograma</h3><p>Selecione um dente, ou “Todos os dentes” para limpeza, raspagem e outros procedimentos da boca toda.</p></div>
@@ -171,6 +175,7 @@
     </section>
     {% endif %}
 
+   
     <section class="card passo" data-step="4" hidden>
       <h3>Orientações e Finalização</h3>
       <div class="campo"><label for="orientacoes">Orientações ao aluno</label>
