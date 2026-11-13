@@ -1,0 +1,201 @@
+{% extends "base_app.html" %}
+{% set ativo = 'atendimento' %}
+{% block titulo %}Novo Atendimento · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="estreito">
+  <div class="page-head">
+    <div><h1>Novo Atendimento</h1><p class="mono">{{ codigo }} · {{ data_extenso }}</p></div>
+    <span class="badge amarelo grande">Em andamento</span>
+  </div>
+
+  <ol class="stepper" id="stepper">
+    {% for rotulo in etapas %}
+    <li data-step="{{ loop.index0 }}"><span class="num">{{ loop.index }}</span><span class="rot">{{ rotulo }}</span></li>
+    {% endfor %}
+  </ol>
+
+  <div class="card resp">
+    <span class="avatar">{{ session['nome']|iniciais }}</span>
+    <div class="grow"><small>Profissional responsável</small><strong>{{ session['nome'] }} – {{ session['cargo'] }}</strong></div>
+    <span class="tag-sessao">Sessão individual</span>
+  </div>
+
+  <form id="form-atend" method="post" action="{{ url_for('novo_atendimento') }}" autocomplete="off">
+
+    <section class="card passo" data-step="0">
+      <h3>Identificação do Aluno</h3>
+      <div class="grid g-aluno">
+        <div class="campo busca">
+          <label for="aluno_nome">Nome do aluno</label>
+          <input type="text" id="aluno_nome" name="aluno_nome" value="{{ aluno_pre.nome if aluno_pre }}" required placeholder="Digite para pesquisar o aluno...">
+          <input type="hidden" id="aluno_id" name="aluno_id" value="{{ aluno_pre.id if aluno_pre }}">
+          <ul class="sugestoes" id="sugestoes" hidden></ul>
+        </div>
+        <div class="campo"><label for="matricula">Matrícula</label>
+          <input type="text" id="matricula" name="matricula" value="{{ aluno_pre.matricula if aluno_pre }}" class="mono" placeholder="2025120IIPI00__"
+                 required pattern="[A-Za-z0-9]{6,20}" title="Só letras e números, sem espaços (ex.: 2025120IIPI0009)" data-filtro="alfanum"></div>
+      </div>
+      <div class="grid g5">
+        <div class="campo"><label for="turma">Turma</label><input type="text" id="turma" name="turma" value="{{ aluno_pre.turma if aluno_pre }}" class="mono" placeholder="2° INFO" required maxlength="40"></div>
+        <div class="campo"><label for="data_nascimento">Nascimento <small id="idade"></small></label>
+          <input type="date" id="data_nascimento" name="data_nascimento" required min="1950-01-01" max="{{ data_iso }}"
+                 value="{{ aluno_pre.data_nascimento.isoformat() if aluno_pre and aluno_pre.data_nascimento }}"
+                 {{ 'readonly' if aluno_pre and aluno_pre.data_nascimento }}
+                 title="Preenchida pelo cadastro do aluno. Se estiver vazia, informe e ela será salva no cadastro."></div>
+        <div class="campo"><label for="sexo">Sexo</label>
+          <select id="sexo" name="sexo" required title="Usado para classificar o IMC pela tabela de idade">
+            <option value="">Selecione</option>
+            <option value="F" {{ 'selected' if aluno_pre and aluno_pre.sexo == 'F' }}>Feminino</option>
+            <option value="M" {{ 'selected' if aluno_pre and aluno_pre.sexo == 'M' }}>Masculino</option>
+          </select></div>
+        <div class="campo"><label for="data">Data</label><input type="date" id="data" name="data" value="{{ data_iso }}" required></div>
+        <div class="campo"><label for="hora">Hora</label><input type="time" id="hora" name="hora" value="{{ hora }}" required></div>
+      </div>
+      <div class="campo"><label for="queixa">Queixa principal</label>
+        <textarea id="queixa" name="queixa" rows="3" required minlength="3" maxlength="160" placeholder="Descreva a queixa principal do aluno..."></textarea></div>
+      <label class="aviso-aula">
+        <input type="checkbox" id="em_aula" name="em_aula" value="1">
+        <span><b>Aluno(a) veio durante o horário de aula</b>
+        <small>Marque para gerar a declaração de comparecimento ao setor de saúde ao finalizar o atendimento.</small></span>
+      </label>
+    </section>
+
+    {% if not usa_odonto %}
+
+    <section class="card passo" data-step="1" hidden>
+      <h3>Anamnese</h3>
+      <p class="nota">Todos os campos são obrigatórios. Quando não houver, use o botão “Nenhuma”.</p>
+      <div class="campo"><label for="historico">Histórico / Observações</label>
+        <textarea id="historico" name="historico" rows="4" required minlength="3" placeholder="Histórico de saúde, alergias, medicamentos em uso..."></textarea></div>
+      <div class="grid g2">
+        <div class="campo"><label for="alergias">Alergias conhecidas <button type="button" class="nenhum" data-nenhum="alergias">Nenhuma</button></label>
+          <input type="text" id="alergias" name="alergias" required maxlength="255" placeholder="Ex: dipirona, penicilina..."
+                 pattern="[A-Za-zÀ-ÿ\s.,;\(\)\/\-]{3,}" title="Use só letras (ex.: dipirona, penicilina) ou “Nenhuma”." data-filtro="texto"></div>
+        <div class="campo"><label for="medicamentos_uso">Medicamentos em uso <button type="button" class="nenhum" data-nenhum="medicamentos_uso">Nenhum</button></label>
+          <input type="text" id="medicamentos_uso" name="medicamentos_uso" required maxlength="255" placeholder="Ex: metformina 500mg/dia"
+                 pattern="[A-Za-zÀ-ÿ0-9\s.,;\(\)\/+%\-]{3,}" title="Nome do medicamento e dose (ex.: metformina 500mg/dia) ou “Nenhum”."></div>
+        <div class="campo"><label for="doencas">Doenças preexistentes <button type="button" class="nenhum" data-nenhum="doencas">Nenhuma</button></label>
+          <input type="text" id="doencas" name="doencas" required maxlength="255" placeholder="Ex: hipertensão, diabetes..."
+                 pattern="[A-Za-zÀ-ÿ0-9\s.,;\(\)\/\-]{3,}" title="Ex.: hipertensão, diabetes tipo 1, ou “Nenhuma”."></div>
+        <div class="campo"><label for="encaminhado_por">Encaminhado por <button type="button" class="nenhum" data-nenhum="encaminhado_por" data-valor="Procura espontânea">Espontânea</button></label>
+          <input type="text" id="encaminhado_por" name="encaminhado_por" required maxlength="120" placeholder="Professor, coordenação..."
+                 pattern="[A-Za-zÀ-ÿ\s.,\(\)\/\-]{3,}" title="Use só letras (ex.: Prof. João, Coordenação) ou “Procura espontânea”." data-filtro="texto"></div>
+      </div>
+    </section>
+
+    <section class="card passo" data-step="2" hidden>
+      <h3>Sinais Vitais</h3>
+      <div class="grid g3">
+        {% for nome, rotulo, exemplo, unidade in sinais %}{% set tipo, mn, mx, obrig = regras_sinais[nome] %}
+        <div class="campo"><label for="{{ nome }}">{{ rotulo }}{% if not obrig %} <small>(opcional)</small>{% endif %}</label>
+          <div class="com-unidade"><input type="text" id="{{ nome }}" name="{{ nome }}" class="mono" placeholder="{{ exemplo }}"
+            {{ 'required' if obrig }} data-sinal="{{ tipo }}" {% if mn is not none %}data-min="{{ mn }}" data-max="{{ mx }}"{% endif %}
+            inputmode="{{ 'decimal' if tipo == 'dec' else 'numeric' }}" maxlength="{{ 7 if tipo == 'pa' else 5 }}"
+            title="{{ 'Formato 120/80' if tipo == 'pa' else 'Só números' + (' (ex.: ' ~ exemplo ~ ')' if tipo == 'dec' else '') }}"><span>{{ unidade }}</span></div>
+          <small class="msg-sinal" id="msg-{{ nome }}"></small></div>
+        {% if nome == 'altura' %}
+        <div class="campo"><label for="imc-ver">IMC <small>(automático)</small></label>
+          <div class="com-unidade"><input type="text" id="imc-ver" class="mono" readonly tabindex="-1" placeholder="peso ÷ altura²"><span>kg/m²</span></div>
+          <input type="hidden" id="imc" name="imc">
+          <small class="msg-sinal" id="msg-imc-ver"></small></div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <div class="alertas-sinais" id="alertas-sinais" hidden>
+        <b>Atenção aos sinais vitais</b>
+        <ul></ul>
+      </div>
+      <p class="nota legenda-sinais"><span><i class="ok"></i>Normal</span><span><i class="atencao"></i>Atenção</span><span><i class="alerta"></i>Alerta</span>
+        <small>Referências para adolescentes e adultos em repouso. Não substituem a avaliação do profissional.</small></p>
+    </section>
+
+    <section class="card passo" data-step="3" hidden>
+      <h3>Procedimentos</h3>
+      <label class="rotulo-solto">Procedimentos realizados</label>
+      <div class="grid g2 checks">
+        {% for p in procedimentos %}<label class="check"><input type="checkbox" name="proc" value="{{ p }}"><span>{{ p }}</span></label>{% endfor %}
+      </div>
+      <div class="campo"><label for="medicamentos_adm">Medicamentos administrados</label>
+        <textarea id="medicamentos_adm" name="medicamentos_adm" rows="3" placeholder="Ex: Dipirona 500mg VO, 1 comprimido"></textarea></div>
+      <div class="linha-checks">
+        <label><input type="checkbox" name="enc_externo" value="1"> Encaminhar para serviço externo</label>
+        <label><input type="checkbox" name="agendar_retorno" id="agendar_retorno" value="1"> Agendar retorno</label>
+      </div>
+      <div class="campo" id="bloco-retorno" hidden>
+        <label for="retorno_data">Data e hora do retorno</label>
+        <input type="datetime-local" id="retorno_data" name="retorno_data">
+      </div>
+    </section>
+
+{% else %}
+    <section class="card passo" id="passo-odonto" hidden>
+      <div class="odonto-topo">
+        <div><h3>Odontograma</h3><p>Selecione um dente, ou “Todos os dentes” para limpeza, raspagem e outros procedimentos da boca toda.</p></div>
+        <div class="legenda"><span class="l-sel">Selecionado</span><span class="l-reg">Com registro</span></div>
+      </div>
+      <div class="todos-dentes">
+        <button type="button" class="btn-todos" id="od-todos">Todos os dentes <small>limpeza · raspagem · flúor</small></button>
+      </div>
+      <div class="arcadas">
+        <p class="arcada-rot">Arcada superior</p><div class="fileira" id="fila-sup"></div>
+        <div class="linha-oclusal"><span>Linha oclusal</span></div>
+        <p class="arcada-rot">Arcada inferior</p><div class="fileira" id="fila-inf"></div>
+      </div>
+      <div class="odonto-baixo">
+        <div class="card-int">
+          <div><b class="titulo-int">Novo procedimento</b><small class="sub-int" id="od-sub">Selecione um dente</small></div>
+          <div class="grid g2">
+            <div class="campo"><label for="od-dente">Número do dente</label><input type="text" id="od-dente" inputmode="numeric" maxlength="2" placeholder="11"
+                 oninput="if(!this.readOnly)this.value=this.value.replace(/\D/g,'')"></div>
+            <div class="campo"><label for="od-proc">Procedimento</label>
+              <select id="od-proc">{% for o in proc_odonto %}<option {{ 'data-boca-toda' if o in boca_toda }}>{{ o }}</option>{% endfor %}</select></div>
+          </div>
+          <div id="bloco-faces"><label class="rotulo-solto">Face dentária</label>
+            <div class="faces" id="od-faces">{% for fc in ['Oclusal/Incisal','Vestibular','Lingual/Palatina','Mesial','Distal'] %}<button type="button" class="face" data-face="{{ fc }}">{{ fc }}</button>{% endfor %}</div></div>
+          <div class="grid g2">
+            <div class="campo"><label for="od-sit">Situação</label><select id="od-sit"><option>Planejado</option><option>Em andamento</option><option>Concluído</option></select></div>
+            <div class="campo"><label for="od-data">Data</label><input type="date" id="od-data" value="{{ data_iso }}"></div>
+          </div>
+          <div class="campo"><label for="od-obs">Observações</label><textarea id="od-obs" rows="3" placeholder="Descreva achados clínicos, materiais ou orientações..."></textarea></div>
+          <p class="erro-int" id="od-erro" hidden></p>
+          <div class="acoes-int"><button type="button" class="btn-sec" id="od-cancelar">Cancelar</button><button type="button" class="btn-primario" id="od-salvar">Salvar procedimento</button></div>
+        </div>
+        <aside class="card-int">
+          <div class="hist-topo"><div><b class="titulo-int">Histórico do dente</b><small class="sub-int" id="od-hist-sub">Selecione um dente</small></div><span class="cont" id="od-cont">0</span></div>
+          <div id="od-lista" class="od-lista"></div>
+        </aside>
+      </div>
+      <p class="nota">Os procedimentos são gravados no banco de dados ao finalizar o atendimento e ficam no histórico do aluno.</p>
+      <input type="hidden" name="odonto" id="odonto-json">
+    </section>
+    {% endif %}
+
+    <section class="card passo" data-step="4" hidden>
+      <h3>Orientações e Finalização</h3>
+      <div class="campo"><label for="orientacoes">Orientações ao aluno</label>
+        <textarea id="orientacoes" name="orientacoes" rows="4" placeholder="Orientações sobre cuidados, restrições, retorno..."></textarea></div>
+      <div class="campo"><label for="observacoes">Observações do profissional</label>
+        <textarea id="observacoes" name="observacoes" rows="3" placeholder="Anotações adicionais, evolução clínica..."></textarea></div>
+      <div class="resumo"><b>Resumo do atendimento</b>
+        <div class="resumo-linhas"><span>Aluno: <em id="res-aluno">—</em></span><span>Turma: <em id="res-turma" class="mono">—</em></span><span>Nascimento: <em id="res-nasc" class="mono">—</em></span>{% if usa_odonto %}<span>Procedimentos registrados: <em id="res-odonto">0</em></span>{% endif %}</div></div>
+      <div class="documentos"><b>Documentos</b>
+        <p class="info-decl" id="info-decl">{{ icon('file', 16) }}
+          <span><b>Declaração de Comparecimento</b>
+          <small class="se-ativa">Será aberta ao finalizar, já preenchida com o aluno, a data, o horário e o seu nome, pronta para imprimir ou salvar em PDF.</small>
+          <small class="se-inativa">Só é gerada quando “Aluno(a) veio durante o horário de aula” estiver marcado na etapa 1.</small></span></p>
+        <p class="nota">O setor não emite atestado: no IFPI não há médico. Se for preciso, o aluno é encaminhado à regional, que emite o atestado.</p>
+      </div>
+      <p class="prof-rodape">Profissional: <b>{{ session['nome'] }} – {{ session['cargo'] }}</b></p>
+    </section>
+
+    <div class="nav-passos">
+      <button type="button" class="btn-sec" id="btn-ant">← Anterior</button>
+      <button type="button" class="btn-primario" id="btn-prox">Próximo →</button>
+      <button type="submit" class="btn-primario" id="btn-fim" hidden>✓ Finalizar Atendimento</button>
+    </div>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/atendimento.js') }}"></script>
+{% if usa_odonto %}<script src="{{ url_for('static', filename='js/odontograma.js') }}"></script>{% endif %}
+{% endblock %}
