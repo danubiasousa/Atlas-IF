@@ -39,3 +39,43 @@
         {% endfor %}
       {% endif %}
     </nav>
+
+     <div class="side-user">
+      <div class="user-linha">
+        <span class="avatar-lg">{{ session['nome']|iniciais }}</span>
+        <div><strong>{{ session['nome'] }}</strong><small>{{ session['cargo'] }}{% if session['perfil'] == 'aluno' and session['turma'] %} · {{ session['turma'] }}{% endif %} · Paulistana</small></div>
+      </div>
+      <a class="sair conta-link" href="{{ url_for('minha_conta') }}">{{ icon('key', 15) }}<span>Minha conta · trocar senha</span></a>
+      <a class="sair" href="{{ url_for('sair') }}">{{ icon('logout', 15) }}<span>Sair do sistema</span></a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="btn-menu" id="btn-menu" aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="campus"><span class="so-pc">IFPI · Campus </span>Paulistana</span>
+      <div class="pills">
+        <span class="pill"><i class="dot"></i>Online</span>
+        <span class="pill mono so-pc">{{ data_curta }}</span>
+      </div>
+    </header>
+    <main class="conteudo">
+      {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+      {% block conteudo %}{% endblock %}</main>
+  </div>
+
+</div>
+<script>
+  (() => {
+    const app = document.getElementById('app'), btn = document.getElementById('btn-menu');
+    const abrir = on => { app.classList.toggle('menu-aberto', on); btn.setAttribute('aria-expanded', on); };
+    btn.onclick = () => abrir(!app.classList.contains('menu-aberto'));
+    document.getElementById('fundo-menu').onclick = () => abrir(false);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') abrir(false); });
+    matchMedia('(min-width: 901px)').addEventListener('change', e => e.matches && abrir(false));
+  })();
+</script>
+</body>
+</html>
