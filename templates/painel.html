@@ -1,0 +1,95 @@
+{% extends "base_app.html" %}
+{% set ativo = 'painel' %}
+{% block titulo %}Painel de Controle · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head">
+  <div>
+    <h1>Painel de Controle</h1>
+    <p>{{ data_longa }}</p>
+  </div>
+  <a href="{{ url_for('novo_atendimento') }}" class="btn-primario">{{ icon('plus', 16) }}Novo Atendimento</a>
+</div>
+
+<section class="card">
+  <div class="card-head">
+    <div><h3>Solicitações de agendamento</h3><p>Notificações enviadas pelos alunos diretamente para você.</p></div>
+    <span class="badge amarelo">{{ solicitacoes|length }} pendentes</span>
+  </div>
+  {% if solicitacoes %}
+    {% for s in solicitacoes %}
+    <div class="linha"><span class="avatar">{{ s.aluno_nome|iniciais }}</span>
+      <div class="grow"><strong>{{ s.aluno_nome }}</strong>
+        <small>{% if s.tipo %}{{ s.tipo }}{% endif %}{% if s.data_preferencial %} · {{ s.data_preferencial|dataBR }} às {{ s.horario|horario }}{% endif %}</small>
+        <small>{{ s.motivo }}{% if s.em_aula %} · <b>em horário de aula</b>{% endif %}</small></div>
+      <form class="resp-acoes" method="post" action="{{ url_for('responder_solicitacao', sid=s.id) }}">
+        <input type="hidden" name="justificativa">
+        <button type="submit" name="acao" value="recusada" class="btn-sec peq"
+          onclick="const j = prompt('Justificativa para o aluno (opcional):'); if (j === null) return false; this.form.justificativa.value = j;">Recusar</button>
+        <button type="submit" name="acao" value="aceita" class="btn-primario peq">Aceitar</button>
+      </form></div>
+    {% endfor %}
+  {% else %}
+    <p class="vazio">Nenhuma solicitação direcionada a você.</p>
+  {% endif %}
+</section>
+
+<section class="stats">
+  <article class="card stat">
+    <div class="stat-topo"><span class="ico-verde">{{ icon('steto', 22) }}</span>
+      <span class="badge verde">{{ '%+d'|format(stats.diff) }} vs ontem</span></div>
+    <b class="verde">{{ stats.hoje }}</b><span>Atendimentos Hoje</span>
+  </article>
+  <article class="card stat">
+    <div class="stat-topo"><span class="ico-azul">{{ icon('repeat', 22) }}</span>
+      <span class="badge amarelo">{{ stats.urgentes }} urgentes</span></div>
+    <b class="laranja">{{ stats.retornos }}</b><span>Retornos Pendentes</span>
+  </article>
+  <article class="card stat">
+    <div class="stat-topo"><span class="ico-laranja">{{ icon('clipboard', 22) }}</span>
+      <span class="badge azul">este mês: {{ stats.encaminhamentos }}</span></div>
+    <b class="azul">{{ stats.encaminhamentos }}</b><span>Encaminhamentos</span>
+  </article>
+  <article class="card stat">
+    <div class="stat-topo"><span class="ico-escuro">{{ icon('alerta', 22) }}</span>
+      <span class="badge vermelho">atualizado hoje</span></div>
+    <b class="vermelho">{{ stats.em_falta }}</b><span>Itens em Falta</span>
+  </article>
+</section>
+
+<div class="duas-colunas">
+  <section class="card">
+    <div class="card-head"><h3>Atendimentos Recentes</h3><a class="link" href="{{ url_for('historico') }}">Ver todos</a></div>
+    {% for a in recentes %}
+    <div class="linha">
+      <span class="avatar">{{ a.aluno_nome|iniciais }}</span>
+      <div class="grow"><strong>{{ a.aluno_nome }}</strong><small>{{ a.queixa }} · <span class="mono">{{ a.turma }}</span></small></div>
+      <div class="direita"><span class="mono hora">{{ a.data_hora|hora }}</span>
+        <span class="badge {{ {'Concluído':'verde','Retorno':'amarelo','Encaminhado':'azul'}[a.status] }}">{{ a.status }}</span></div>
+    </div>
+    {% else %}<p class="vazio">Nenhum atendimento registrado.</p>{% endfor %}
+  </section>
+
+  <div class="coluna">
+    <section class="card">
+      <div class="card-head"><h3>Retornos Agendados</h3><span class="badge amarelo">{{ retornos|length }} pendentes</span></div>
+      {% for r in retornos %}
+      <div class="linha retorno">
+        <i class="ponto-status {{ 'urgente' if r.urgente }}"></i>
+        <div class="grow"><strong>{{ r.aluno_nome }}</strong><small>{{ r.motivo }}</small><small class="mono">{{ r.data_hora|quando }}</small></div>
+      </div>
+      {% else %}<p class="vazio">Nenhum retorno pendente.</p>{% endfor %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Estoque Crítico</h3><a class="link" href="{{ url_for('materiais') }}">Ver estoque</a></div>
+      {% for e in estoque %}
+      <div class="linha estoque">
+        <div class="estoque-topo"><span>{{ e.item }}</span><b class="mono">{{ e.quantidade }}/{{ e.ideal }} {{ e.unidade }}</b></div>
+        <div class="barra"><i style="width: {{ (e.quantidade / e.ideal * 100)|round|int }}%"></i></div>
+      </div>
+      {% else %}<p class="vazio">Estoque dentro do esperado.</p>{% endfor %}
+    </section>
+  </div>
+</div>
+{% endblock %}
