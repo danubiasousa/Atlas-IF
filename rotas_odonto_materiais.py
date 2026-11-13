@@ -13,3 +13,34 @@ TODOS_DENTES = 0
 
 def nome_dente(n):
     return "Todos os dentes" if n == TODOS_DENTES else f"Dente {n}"
+
+    def usa_odonto():
+    return session.get("cargo") in ODONTO_CARGOS
+
+
+def ler_odonto(texto, data_padrao):
+    """Valida o JSON de procedimentos do odontograma enviado pelo formulário."""
+    try:
+        itens = json.loads(texto or "[]")
+    except ValueError:
+        return []
+    saida = []
+    for r in itens if isinstance(itens, list) else []:
+        try:
+            dente = int(r.get("dente"))
+        except (TypeError, ValueError):
+            continue
+        procedimento = str(r.get("procedimento", "Avaliação"))[:80]
+        if dente not in DENTES and not (dente == TODOS_DENTES and procedimento in BOCA_TODA):
+            continue
+        try:
+            data = datetime.strptime(str(r.get("data")), "%Y-%m-%d").date()
+        except ValueError:
+            data = data_padrao
+        situacao = r.get("situacao") if r.get("situacao") in SITUACOES else "Planejado"
+        faces = ", ".join(x for x in r.get("faces", []) if x in FACES)
+        rid = r.get("id")
+        saida.append({"id": int(rid) if str(rid or "").isdigit() else None, "dente": dente,
+                      "procedimento": procedimento, "faces": "" if dente == TODOS_DENTES else faces,
+                      "situacao": situacao, "data": data, "observacoes": str(r.get("observacoes", "")).strip() or None})
+    return saida
