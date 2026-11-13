@@ -1,12 +1,14 @@
 """Odontograma e controle de materiais e medicamentos (Sthefany)."""
 from nucleo import *  
 
+
 ODONTO_CARGOS = ("Dentista", "Técnico em Saúde Bucal")
 DENTES = [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28,48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38]
 FACES = ["Oclusal/Incisal", "Vestibular", "Lingual/Palatina", "Mesial", "Distal"]
 SITUACOES = ["Planejado", "Em andamento", "Concluído"]
 PROC_ODONTO = ["Avaliação", "Restauração", "Limpeza (profilaxia)", "Raspagem", "Aplicação de flúor", "Selante",
                "Tratamento de cárie", "Endodontia", "Exodontia", "Orientação de higiene bucal", "Outro"]
+
 BOCA_TODA = ["Limpeza (profilaxia)", "Raspagem", "Aplicação de flúor", "Avaliação", "Orientação de higiene bucal"]
 TODOS_DENTES = 0
 
@@ -14,7 +16,8 @@ TODOS_DENTES = 0
 def nome_dente(n):
     return "Todos os dentes" if n == TODOS_DENTES else f"Dente {n}"
 
-    def usa_odonto():
+
+def usa_odonto():
     return session.get("cargo") in ODONTO_CARGOS
 
 
@@ -45,7 +48,8 @@ def ler_odonto(texto, data_padrao):
                       "situacao": situacao, "data": data, "observacoes": str(r.get("observacoes", "")).strip() or None})
     return saida
 
-    @app.route("/api/alunos/<int:aluno_id>/odonto")
+
+@app.route("/api/alunos/<int:aluno_id>/odonto")
 @profissional_required
 def api_odonto(aluno_id):
     with get_db().cursor() as cur:
@@ -56,6 +60,9 @@ def api_odonto(aluno_id):
         r["data"] = r["data"].isoformat()
     return jsonify(linhas)
 
+
+
+
 def classificar_estoque(qtd, minimo):
     """Normal: qtd >= mínimo · Crítico: menos de 50% do mínimo · Baixo: o resto."""
     if not minimo or qtd >= minimo:
@@ -63,7 +70,8 @@ def classificar_estoque(qtd, minimo):
     pct = int(qtd / minimo * 100 + 0.5)
     return ("Crítico" if qtd * 2 < minimo else "Baixo"), pct
 
-    def ler_material(f):
+
+def ler_material(f):
     item = f.get("item", "").strip()
     if not item:
         return None, "Informe o nome do item."
@@ -103,7 +111,8 @@ def materiais():
                            categorias=categorias, q=q, cat=cat, status=status,
                            filtrado=bool(q or cat or status), hoje_mes=date.today().strftime("%Y-%m"))
 
-                           @app.route("/materiais/novo", methods=["POST"])
+
+@app.route("/materiais/novo", methods=["POST"])
 @profissional_required
 def novo_material():
     d, erro = ler_material(request.form)
@@ -139,3 +148,5 @@ def excluir_material(item_id):
             cur.execute("DELETE FROM estoque WHERE id=%s", (item_id,))
             flash(f"Item “{row['item']}” excluído.")
     return redirect(url_for("materiais"))
+
+

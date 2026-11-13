@@ -1,5 +1,5 @@
 """Registro de atendimentos (anamnese, sinais vitais), histórico e declaração de comparecimento (Maria Aparecida)."""
-from nucleo import *  
+from nucleo import * 
 from rotas_odonto_materiais import (ODONTO_CARGOS, DENTES, FACES, SITUACOES, PROC_ODONTO, BOCA_TODA,  
                                     TODOS_DENTES, nome_dente, usa_odonto, ler_odonto)
 
@@ -11,6 +11,7 @@ SINAIS = [("pressao", "Pressão arterial", "120/80", "mmHg"), ("fc", "Freq. card
           ("fr", "Freq. respiratória", "16", "irpm"), ("temperatura", "Temperatura", "36.5", "°C"),
           ("saturacao", "Saturação O₂", "98", "%"), ("peso", "Peso", "65", "kg"), ("altura", "Altura", "165", "cm"),
           ("glicemia", "Glicemia", "95", "mg/dL")]
+
 REGRAS_SINAIS = {"pressao": ("pa", None, None, True), "fc": ("int", 20, 250, True), "fr": ("int", 4, 80, True),
                  "temperatura": ("dec", 30, 45, True), "saturacao": ("int", 40, 100, True),
                  "peso": ("dec", 2, 350, True), "altura": ("int", 50, 230, True), "glicemia": ("int", 10, 999, False)}
@@ -90,8 +91,7 @@ def novo_atendimento():
         if not sexo:
             flash("Informe o sexo do aluno (usado no cálculo do IMC por idade).", "erro")
             return redirect(url_for("novo_atendimento"))
-
-            if not usa_odonto():
+        if not usa_odonto():
             faltando = [c for c in ANAMNESE if not dados[c]]
             erro = ("Preencha todos os campos da anamnese (use “Nenhuma” quando não houver)." if faltando else
                     next((e for c in REGRAS_SINAIS if (e := erro_sinal(c, dados[c] or ""))), None))
@@ -162,7 +162,8 @@ def novo_atendimento():
         data_extenso=f"{d.day} de {MESES[d.month - 1]} de {d.year} {d:%H:%M}",
     )
 
-    @app.route("/atendimentos/<int:atendimento_id>/declaracao")
+
+@app.route("/atendimentos/<int:atendimento_id>/declaracao")
 @profissional_required
 def declaracao(atendimento_id):
     """Declaração de comparecimento no modelo do IFPI, preenchida com o aluno e o profissional do atendimento."""
@@ -180,7 +181,8 @@ def declaracao(atendimento_id):
     return render_template("declaracao.html", a=a, inicio=a["data_hora"].strftime("%H:%M"), fim=fim.strftime("%H:%M"),
                            campus=a.get("prof_campus") or "Paulistana", novo=request.args.get("novo"))
 
-                           @app.route("/historico")
+
+@app.route("/historico")
 @profissional_required
 def historico():
     q, tipo, data = (request.args.get(k, "").strip() for k in ("q", "tipo", "data"))
@@ -198,3 +200,5 @@ def historico():
         cur.execute(sql, args)
         registros = cur.fetchall()
     return render_template("historico.html", registros=registros, q=q, tipo=tipo, data=data)
+
+

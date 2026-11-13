@@ -1,6 +1,7 @@
 """Agendamentos: portal do aluno, horários disponíveis, painel do profissional e resposta às solicitações (Geovane)."""
 from nucleo import *  
 
+
 @app.route("/painel")
 @profissional_required
 def painel():
@@ -39,6 +40,9 @@ def painel():
         data_curta=f"{hoje.day:02d} de {MESES[hoje.month - 1][:3]}. de {hoje.year}",
     )
 
+
+
+
 JANELAS = {"Manhã": (time(8, 0), time(12, 30), "8h00 às 12h30"), "Tarde": (time(14, 0), time(18, 0), "14h00 às 18h00")}
 DIA_TODO = ("Manhã", "Tarde")
 PORTAL = {
@@ -52,6 +56,7 @@ PORTAL = {
 STATUS_SOLIC = {"pendente": ("Aguardando confirmação", "amarelo"), "aceita": ("Confirmado", "verde"),
                 "recusada": ("Recusado", "vermelho")}
 
+
 def horarios(turnos):
     """Horários de 30 em 30 minutos dentro das janelas dos turnos do profissional."""
     saida = []
@@ -63,10 +68,12 @@ def horarios(turnos):
             t += timedelta(minutes=30)
     return saida
 
+
 def descricao_turnos(turnos):
     if tuple(turnos) == DIA_TODO:
         return "Dia todo", "8h00 às 12h30 e 14h00 às 18h00"
     return " e ".join(turnos), " e ".join(JANELAS[t][2] for t in turnos)
+
 
 def montar_grupos(cur):
     emails = [e for g in PORTAL.values() for e, _ in g["profissionais"]]
@@ -84,12 +91,14 @@ def montar_grupos(cur):
         grupos[tipo] = {**g, "lista": lista}
     return grupos
 
+
 def achar_profissional(grupos, prof_id):
     for tipo, g in grupos.items():
         for p in g["lista"]:
             if str(p["id"]) == str(prof_id):
                 return tipo, g, p
     return None, None, None
+
 
 def horarios_do_dia(cur, g, prof, dia):
     """Slots do profissional no dia: some os já passados (hoje) e, no odontológico, os já ocupados."""
@@ -106,6 +115,7 @@ def horarios_do_dia(cur, g, prof, dia):
                       "motivo": "já passou" if passou else ("ocupado" if s["v"] in ocupados else "")})
     return saida
 
+
 @app.route("/aluno")
 @aluno_required
 def aluno_painel():
@@ -113,10 +123,12 @@ def aluno_painel():
         solicitacoes = minhas_solicitacoes(cur, 5)
     return render_template("aluno_painel.html", solicitacoes=solicitacoes, status_solic=STATUS_SOLIC)
 
+
 def minhas_solicitacoes(cur, limite=20):
     cur.execute("SELECT s.*, u.nome AS prof_nome FROM solicitacoes s LEFT JOIN usuarios u ON u.id = s.profissional_id "
                 "WHERE s.aluno_id = %s ORDER BY s.criado_em DESC, s.id DESC LIMIT %s", (session["aluno_id"], limite))
     return cur.fetchall()
+
 
 @app.route("/aluno/api/horarios")
 @aluno_required
@@ -141,7 +153,9 @@ def api_horarios():
     if not any(s["livre"] for s in slots):
         return jsonify({"bloqueado": "Não há mais horários livres nesse dia com esse profissional.", "slots": slots})
     return jsonify({"bloqueado": None, "slots": slots})
-    @app.route("/aluno/marcar", methods=["GET", "POST"])
+
+
+@app.route("/aluno/marcar", methods=["GET", "POST"])
 @aluno_required
 def aluno_marcar():
     with get_db().cursor() as cur:
@@ -193,7 +207,8 @@ def aluno_marcar():
                            sugestao=sugestao.isoformat() if sugestao else hoje.isoformat(),
                            limite=ULTIMO_DIA_CALENDARIO.isoformat())
 
-                           @app.route("/aluno/atendimentos")
+
+@app.route("/aluno/atendimentos")
 @aluno_required
 def aluno_atendimentos():
     tipo, data = (request.args.get(k, "").strip() for k in ("tipo", "data"))
@@ -211,7 +226,8 @@ def aluno_atendimentos():
     return render_template("aluno_atendimentos.html", registros=registros, solicitacoes=solicitacoes,
                            status_solic=STATUS_SOLIC, tipo=tipo, data=data)
 
-                           @app.route("/solicitacoes/<int:sid>/responder", methods=["POST"])
+
+@app.route("/solicitacoes/<int:sid>/responder", methods=["POST"])
 @profissional_required
 def responder_solicitacao(sid):
     acao = request.form.get("acao")
@@ -223,3 +239,5 @@ def responder_solicitacao(sid):
                     "AND status = 'pendente'", (acao, just if acao == "recusada" else None, sid, session["user_id"]))
     flash("Solicitação confirmada." if acao == "aceita" else "Solicitação recusada; o aluno verá a justificativa.")
     return redirect(url_for("painel"))
+
+

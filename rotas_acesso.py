@@ -1,5 +1,6 @@
 """Login, primeiro acesso, recuperação de senha, minha conta, cadastro de alunos e usuários (Danúbia)."""
 from nucleo import *  
+
 def buscar_usuario(texto):
     """Aceita 'nome.sobrenome' (completa com @ifpi.edu.br), o e-mail completo, a matrícula do aluno
     ou o e-mail que o aluno cadastrou no primeiro acesso."""
@@ -14,10 +15,12 @@ def buscar_usuario(texto):
         user = cur.fetchone()
         if user or "@" not in texto:
             return user
+
         cur.execute("SELECT * FROM usuarios WHERE perfil = 'aluno' AND ativo = 1 AND LOWER(email_recuperacao) = %s LIMIT 2",
                     (texto,))
         achados = cur.fetchall()
         return achados[0] if len(achados) == 1 else None
+
 
 def senha_confere(user, senha):
     """A senha pessoal diferencia maiúsculas de minúsculas. Exceção: a senha INICIAL padronizada
@@ -28,6 +31,7 @@ def senha_confere(user, senha):
         return False
     return any(v != senha and check_password_hash(user["senha_hash"], v) for v in {senha.upper(), senha.lower()})
 
+
 def email_em_uso(email, uid):
     """O e-mail do aluno também serve de login, então não pode repetir o de outra pessoa."""
     with get_db().cursor() as cur:
@@ -35,10 +39,12 @@ def email_em_uso(email, uid):
                     "(perfil = 'aluno' AND LOWER(email_recuperacao) = %s)) LIMIT 1", (uid, email, email))
         return cur.fetchone() is not None
 
+
 def dados_aluno(user):
     with get_db().cursor() as cur:
         cur.execute("SELECT id, matricula, turma FROM alunos WHERE usuario_id = %s AND ativo = 1", (user["id"],))
         return cur.fetchone()
+
 
 def iniciar_sessao(user):
     """Abre a sessão de fato (depois da senha e, se preciso, do primeiro acesso)."""
@@ -55,8 +61,10 @@ def iniciar_sessao(user):
                    nivel=user.get("nivel") or "Operador")
     return redirect(url_for("painel"))
 
+
 def precisa_primeiro_acesso(user):
     return bool(user.get("trocar_senha")) or not (user.get("email_recuperacao") and user.get("telefone_recuperacao"))
+
 
 @app.route("/", methods=["GET", "POST"])
 @app.route("/login", methods=["GET", "POST"])
@@ -90,7 +98,9 @@ def login():
         return render_template("login.html", versao=VERSAO, usuario=digitado)
     return render_template("login.html", versao=VERSAO, usuario="")
 
+
 _SUGESTOES_IP = {}
+
 
 @app.route("/api/sugestoes-usuario")
 def sugestoes_usuario():
@@ -98,6 +108,7 @@ def sugestoes_usuario():
     q = (request.args.get("q") or "").strip().lower().replace(" ", "")
     if len(q) < 2 or len(q) > 120:
         return jsonify([])
+
     ip, agora_ = request.remote_addr or "?", agora()
     janela = [t for t in _SUGESTOES_IP.get(ip, []) if (agora_ - t).total_seconds() < 60]
     if len(janela) >= 60:
@@ -106,16 +117,19 @@ def sugestoes_usuario():
 
     prefixo = q.replace("\\", "").replace("%", "").replace("_", "\\_") + "%"
     with get_db().cursor() as cur:
+        
         cur.execute("SELECT usuario AS valor, perfil FROM usuarios WHERE ativo = 1 AND usuario LIKE %s "
                     "ORDER BY valor LIMIT 6", (prefixo,))
         linhas = cur.fetchall()
     return jsonify([{"valor": r["valor"].upper() if r["perfil"] == "aluno" and "@" not in r["valor"] else r["valor"],
                      "tipo": "Aluno" if r["perfil"] == "aluno" else "Servidor"} for r in linhas if r["valor"]])
 
+
 def usuario_por_id(uid):
     with get_db().cursor() as cur:
         cur.execute("SELECT * FROM usuarios WHERE id = %s AND ativo = 1", (uid,))
         return cur.fetchone()
+
 
 def validar_nova_senha(user, nova, confirma, senha_antiga_hash=None):
     if nova != confirma:
@@ -126,6 +140,7 @@ def validar_nova_senha(user, nova, confirma, senha_antiga_hash=None):
     if senha_antiga_hash and check_password_hash(senha_antiga_hash, nova):
         return "A nova senha precisa ser diferente da senha atual."
     return None
+
 
 @app.route("/primeiro-acesso", methods=["GET", "POST"])
 def primeiro_acesso():
@@ -168,9 +183,12 @@ def primeiro_acesso():
     return render_template("primeiro_acesso.html", **ctx, email=user.get("email_recuperacao") or "",
                            telefone=user.get("telefone_recuperacao") or "")
 
-VALIDADE_CODIGO = timedelta(minutes=1)  
+
+
+VALIDADE_CODIGO = timedelta(minutes=1)   
 PRAZO_NOVA_SENHA = timedelta(minutes=10)  
 MAX_TENTATIVAS = 5
+
 
 @app.route("/esqueci-senha", methods=["GET", "POST"])
 def esqueci_senha():
@@ -188,7 +206,9 @@ def esqueci_senha():
         return redirect(url_for("enviar_codigo_rec"))
     return render_template("recuperar.html", etapa="usuario", versao=VERSAO, usuario="")
 
+
 ESPERA_REENVIO = 60   
+
 
 def canais_do_usuario(user):
     canais = []
@@ -198,9 +218,11 @@ def canais_do_usuario(user):
         canais.append(("sms", "SMS", mascarar_telefone(user["telefone_recuperacao"])))
     return canais
 
+
 def ultimo_codigo(cur, uid):
     cur.execute("SELECT * FROM codigos_recuperacao WHERE usuario_id=%s ORDER BY id DESC LIMIT 1", (uid,))
     return cur.fetchone()
+
 
 @app.route("/esqueci-senha/enviar", methods=["GET", "POST"])
 def enviar_codigo_rec():
@@ -245,7 +267,8 @@ def enviar_codigo_rec():
         return redirect(url_for("codigo_rec"))
     return render_template("recuperar.html", etapa="canal", versao=VERSAO, canais=canais, user=user)
 
-    @app.route("/esqueci-senha/codigo", methods=["GET", "POST"])
+
+@app.route("/esqueci-senha/codigo", methods=["GET", "POST"])
 def codigo_rec():
     """Etapa 3: só verifica o código."""
     user = usuario_por_id(session.get("rec_uid")) if session.get("rec_uid") else None
@@ -280,6 +303,7 @@ def codigo_rec():
         return redirect(url_for("nova_senha_rec"))
     return render_template("recuperar.html", **ctx)
 
+
 @app.route("/esqueci-senha/nova-senha", methods=["GET", "POST"])
 def nova_senha_rec():
     """Etapa 4: só depois do código confirmado."""
@@ -301,6 +325,7 @@ def nova_senha_rec():
             flash(erro)
             return redirect(url_for("nova_senha_rec"))
         with get_db().cursor() as cur:
+           
             cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=0, senha_alterada_em=%s WHERE id=%s",
                         (generate_password_hash(f["nova"]), agora(), user["id"]))
         session.clear()
@@ -308,6 +333,8 @@ def nova_senha_rec():
         return redirect(url_for("login"))
     return render_template("recuperar.html", etapa="senha", versao=VERSAO, user=user, regras=REGRAS_SENHA,
                            especiais=ESPECIAIS)
+
+
 
 @app.route("/conta", methods=["GET", "POST"])
 @login_required
@@ -345,6 +372,8 @@ def minha_conta():
         return redirect(url_for("minha_conta"))
     return render_template("minha_conta.html", ativo="conta", user=user, regras=REGRAS_SENHA, especiais=ESPECIAIS)
 
+
+
 @app.route("/alunos")
 @profissional_required
 def alunos():
@@ -366,6 +395,7 @@ def alunos():
         turmas = [r["turma"] for r in cur.fetchall()]
     return render_template("alunos.html", alunos=lista, turmas=turmas, q=q, turma=turma, data=data,
                            filtrado=bool(where))
+
 
 @app.route("/alunos/novo", methods=["POST"])
 @profissional_required
@@ -398,6 +428,7 @@ def novo_aluno():
           "No primeiro acesso o aluno cria a própria senha.", "ok")
     return redirect(url_for("alunos"))
 
+
 @app.route("/alunos/<int:aluno_id>/nova-senha", methods=["POST"])
 @profissional_required
 def nova_senha_aluno(aluno_id):
@@ -418,7 +449,11 @@ def nova_senha_aluno(aluno_id):
           "No próximo acesso o aluno cria uma senha nova.", "ok")
     return redirect(url_for("alunos"))
 
+
+
+
 NIVEIS = ["Operador", "Supervisor"]
+
 
 def ler_usuario(f):
     nome = f.get("nome", "").strip()
@@ -429,9 +464,11 @@ def ler_usuario(f):
     return {"nome": nome[:120], "cargo": f.get("cargo", "").strip()[:80] or None,
             "campus": f.get("campus", "").strip()[:60] or "Paulistana", "nivel": nivel, "siape": siape}, None
 
+
 def supervisores_ativos_exceto(cur, uid):
     cur.execute("SELECT COUNT(*) n FROM usuarios WHERE perfil <> 'aluno' AND ativo = 1 AND nivel = 'Supervisor' AND id <> %s", (uid,))
     return cur.fetchone()["n"]
+
 
 @app.route("/usuarios")
 @supervisor_required
@@ -448,6 +485,7 @@ def usuarios():
             atividades = cur.fetchall()
     return render_template("usuarios.html", aba=aba, lista=lista, atividades=atividades, niveis=NIVEIS,
                            ativos=sum(1 for u in lista if u["ativo"]))
+
 
 @app.route("/usuarios/novo", methods=["POST"])
 @supervisor_required
@@ -474,6 +512,7 @@ def novo_usuario():
     flash(f"Usuário {d['nome']} criado. Senha inicial: {senha} (padrão dos servidores). "
           "No primeiro acesso a pessoa cria a própria senha.", "ok")
     return redirect(url_for("usuarios"))
+
 
 @app.route("/usuarios/<int:uid>/editar", methods=["POST"])
 @supervisor_required
@@ -503,6 +542,7 @@ def editar_usuario(uid):
     flash(msg)
     return redirect(url_for("usuarios"))
 
+
 @app.route("/usuarios/<int:uid>/status", methods=["POST"])
 @supervisor_required
 def status_usuario(uid):
@@ -521,7 +561,9 @@ def status_usuario(uid):
     flash(f"Usuário {u['nome']} {'desativado' if u['ativo'] else 'reativado'}.")
     return redirect(url_for("usuarios"))
 
+
 @app.route("/sair")
 def sair():
     session.clear()
     return redirect(url_for("login"))
+
