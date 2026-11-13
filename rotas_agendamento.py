@@ -210,3 +210,16 @@ def aluno_atendimentos():
         solicitacoes = minhas_solicitacoes(cur, 10)
     return render_template("aluno_atendimentos.html", registros=registros, solicitacoes=solicitacoes,
                            status_solic=STATUS_SOLIC, tipo=tipo, data=data)
+
+                           @app.route("/solicitacoes/<int:sid>/responder", methods=["POST"])
+@profissional_required
+def responder_solicitacao(sid):
+    acao = request.form.get("acao")
+    if acao not in ("aceita", "recusada"):
+        return redirect(url_for("painel"))
+    just = request.form.get("justificativa", "").strip()[:300] or None
+    with get_db().cursor() as cur:
+        cur.execute("UPDATE solicitacoes SET status = %s, justificativa = %s WHERE id = %s AND profissional_id = %s "
+                    "AND status = 'pendente'", (acao, just if acao == "recusada" else None, sid, session["user_id"]))
+    flash("Solicitação confirmada." if acao == "aceita" else "Solicitação recusada; o aluno verá a justificativa.")
+    return redirect(url_for("painel"))
