@@ -26,7 +26,6 @@ from seguranca import (DOMINIO, REGRAS_SENHA, ESPECIAIS, SENHA_PADRAO_SERVIDOR, 
 BASE = Path(__file__).parent
 VERSAO = "v2.6.0"
 LIMITE_CRITICO = 0.5  
-
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
     "port": int(os.getenv("DB_PORT", 3306)),
@@ -39,6 +38,7 @@ DB_CONFIG = {
 DB_NAME = os.getenv("DB_NAME", "atlas_if")
 
 CATEGORIAS = ["Antisséptico", "Curativo", "Descartável", "Equipamento", "EPI", "Medicamento"]
+
 MATERIAIS_INICIAIS = [
     ("Álcool 70%", "Antisséptico", "frascos 500ml", "Cirúrgica Piauí", 2, 10, "2025-06"),
     ("Luva Procedimento M", "EPI", "pares", "MedSupply", 5, 20, "2026-03"),
@@ -69,12 +69,15 @@ app.secret_key = os.getenv("SECRET_KEY", "troque-esta-chave-em-producao")
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
+
+
 def get_db():
     if "db" not in g:
         g.db = pymysql.connect(database=DB_NAME, **DB_CONFIG)
     return g.db
 
-    @app.teardown_appcontext
+
+@app.teardown_appcontext
 def close_db(_):
     db = g.pop("db", None)
     if db:
@@ -92,12 +95,14 @@ def init_db():
             if comando:
                 cur.execute(comando)
 
+        
         cur.execute("SHOW COLUMNS FROM usuarios LIKE 'cargo'")
         if not cur.fetchone():
             cur.execute("ALTER TABLE usuarios ADD COLUMN cargo VARCHAR(80) NULL AFTER perfil")
         cur.execute("ALTER TABLE usuarios MODIFY usuario VARCHAR(120) NOT NULL")
         cur.execute("UPDATE IGNORE usuarios SET usuario = LOWER(TRIM(usuario)) WHERE usuario <> LOWER(TRIM(usuario))")
 
+        
         cur.execute("DELETE FROM usuarios WHERE usuario = 'admin'")
         for usuario, nome, cargo, senha_hash in USUARIOS_INICIAIS:
             cur.execute(
@@ -107,6 +112,7 @@ def init_db():
                 (usuario, nome, cargo, senha_hash),
             )
 
+        
         extras = {
             "codigo": "VARCHAR(20) NULL", "aluno_id": "INT UNSIGNED NULL", "profissional_id": "INT UNSIGNED NULL",
             "matricula": "VARCHAR(30) NULL", "tipo": "VARCHAR(20) NOT NULL DEFAULT 'Atendimento'",
@@ -179,14 +185,15 @@ def init_db():
                 [("Álcool 70%", 2, 10, "frascos"), ("Luva M", 5, 20, "pares"),
                  ("Dipirona 500mg", 3, 15, "caixas"), ("Seringa 5ml", 8, 30, "un.")],
             )
-
-             for nome_al, velha, nova in [("Geovane Moura Gomes", "2025120IIPI0003", "2025120IIPI0012"),
+       
+        for nome_al, velha, nova in [("Geovane Moura Gomes", "2025120IIPI0003", "2025120IIPI0012"),
                                      ("Sthefany Kailane Lima de Sousa", "2025120IIPI0014", "2025120IIPI0036"),
                                      ("Maria Aparecida Coelho de Sousa", "2025120IIPI0021", "2025120IIPI0032")]:
             cur.execute("UPDATE alunos SET matricula=%s WHERE nome=%s AND matricula=%s", (nova, nome_al, velha))
         cur.execute("UPDATE alunos SET curso='Técnico em Informática para Internet' WHERE curso IS NULL AND matricula LIKE '2025120IIPI%'")
         cur.execute("UPDATE alunos SET campus='Paulistana' WHERE campus IS NULL AND matricula LIKE '2025120IIPI%'")
         cur.execute("UPDATE atendimentos a JOIN alunos al ON al.id = a.aluno_id SET a.matricula = al.matricula")
+        
         cur.execute("UPDATE atendimentos SET tipo = CASE status WHEN 'Retorno' THEN 'Retorno' "
                     "WHEN 'Encaminhado' THEN 'Encaminhamento' ELSE 'Atendimento' END")
         cur.execute("UPDATE atendimentos SET codigo = CONCAT('ATD-', YEAR(data_hora), '-', 1000+id) WHERE codigo IS NULL")
@@ -195,12 +202,12 @@ def init_db():
         cur.execute("UPDATE atendimentos a JOIN usuarios u ON u.usuario = 'mariana.moura@ifpi.edu.br' "
                     "SET a.profissional_id = u.id WHERE a.profissional_id IS NULL")
 
+        
         for col, ddl in {"categoria": "VARCHAR(40) NULL", "fornecedor": "VARCHAR(80) NULL", "validade": "DATE NULL"}.items():
             cur.execute("SHOW COLUMNS FROM estoque LIKE %s", (col,))
             if not cur.fetchone():
                 cur.execute(f"ALTER TABLE estoque ADD COLUMN {col} {ddl}")
-
-                  cur.execute("SELECT COUNT(*) n FROM estoque WHERE categoria IS NOT NULL")
+        cur.execute("SELECT COUNT(*) n FROM estoque WHERE categoria IS NOT NULL")
         if cur.fetchone()["n"] == 0:   
             cur.execute("UPDATE estoque SET item='Luva Procedimento M' WHERE item='Luva M'")
             for item, cat, unid, forn, qtd, minimo, val in MATERIAIS_INICIAIS:
@@ -214,6 +221,7 @@ def init_db():
                     cur.execute("INSERT INTO estoque (item, categoria, unidade, fornecedor, quantidade, ideal, validade) "
                                 "VALUES (%s,%s,%s,%s,%s,%s,%s)", (item, cat, unid, forn, qtd, minimo, val))
 
+       
         for col, ddl in {"usuario_id": "INT UNSIGNED NULL"}.items():
             cur.execute("SHOW COLUMNS FROM alunos LIKE %s", (col,))
             if not cur.fetchone():
@@ -229,6 +237,7 @@ def init_db():
         for al in cur.fetchall():
             criar_login_aluno(cur, al["id"], al["matricula"], al["nome"], al["data_nascimento"])
 
+        
         for col, ddl in {"campus": "VARCHAR(60) NULL", "siape": "VARCHAR(20) NULL"}.items():
             cur.execute("SHOW COLUMNS FROM usuarios LIKE %s", (col,))
             if not cur.fetchone():
@@ -239,16 +248,19 @@ def init_db():
             cur.execute("UPDATE usuarios SET nivel='Supervisor' WHERE usuario='mariana.moura@ifpi.edu.br'")
         cur.execute("UPDATE usuarios SET campus='Paulistana' WHERE campus IS NULL AND perfil <> 'aluno'")
 
+       
         for col, ddl in {"trocar_senha": "TINYINT(1) NOT NULL DEFAULT 1", "email_recuperacao": "VARCHAR(120) NULL",
                          "telefone_recuperacao": "VARCHAR(20) NULL", "senha_alterada_em": "DATETIME NULL"}.items():
             cur.execute("SHOW COLUMNS FROM usuarios LIKE %s", (col,))
             if not cur.fetchone():
                 cur.execute(f"ALTER TABLE usuarios ADD COLUMN {col} {ddl}")
 
+        
         cur.execute("SHOW COLUMNS FROM atendimentos LIKE 'finalizado_em'")
         if not cur.fetchone():
             cur.execute("ALTER TABLE atendimentos ADD COLUMN finalizado_em DATETIME NULL")
 
+       
         cur.execute("CREATE TABLE IF NOT EXISTS migracoes (nome VARCHAR(60) PRIMARY KEY, feita_em DATETIME NOT NULL)")
         cur.execute("SELECT 1 FROM migracoes WHERE nome = 'senhas_padrao_2026'")
         if not cur.fetchone():
@@ -260,8 +272,10 @@ def init_db():
                 cur.execute("UPDATE usuarios SET senha_hash=%s WHERE id=%s", (generate_password_hash(senha), u["id"]))
             cur.execute("INSERT INTO migracoes VALUES ('senhas_padrao_2026', %s)", (agora(),))
 
+        
         cur.execute("SELECT 1 FROM migracoes WHERE nome = 'alunos_nov_2026'")
         if not cur.fetchone():
+            
             for nome, nasc in [("Sthefany Kailane Lima de Sousa", date(2010, 3, 20)),
                                ("Danúbia Coelho de Sousa", date(2009, 4, 19)),
                                ("Maria Aparecida Coelho de Sousa", date(2009, 10, 21)),
@@ -274,6 +288,7 @@ def init_db():
                                     (generate_password_hash(nasc.strftime("%d%m%Y")), al["usuario_id"]))
                     else:
                         criar_login_aluno(cur, al["id"], al["matricula"], nome, nasc)
+
             cur.execute("SELECT id, nome, usuario_id FROM alunos WHERE nome LIKE %s", ("Ana Caroliny%",))
             for al in cur.fetchall():
                 for tabela in ("atendimentos", "retornos", "solicitacoes"):
@@ -303,7 +318,8 @@ def login_required(f):
         return f(*a, **kw)
     return wrapper
 
-    def profissional_required(f):
+
+def profissional_required(f):
     """Telas do setor de saúde: o aluno é enviado ao portal dele."""
     @wraps(f)
     def wrapper(*a, **kw):
@@ -358,7 +374,9 @@ def criar_login_aluno(cur, aluno_id, matricula, nome, nascimento=None):
     cur.execute("UPDATE alunos SET usuario_id = %s WHERE id = %s", (uid, aluno_id))
     return senha
 
-    @app.template_filter("iniciais")
+
+
+@app.template_filter("iniciais")
 def iniciais(nome):
     p = nome.split()
     return (p[0][0] + (p[1][0] if len(p) > 1 else "")).upper()
@@ -406,3 +424,4 @@ def data_br(d):
 @app.template_filter("datahora")
 def datahora(d):
     return d.strftime("%d/%m/%Y %H:%M")
+
