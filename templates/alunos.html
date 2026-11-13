@@ -1,0 +1,78 @@
+{% extends "base_app.html" %}
+{% set ativo = 'alunos' %}
+{% block titulo %}Alunos · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head">
+  <div>
+    <h1>Alunos</h1>
+    <p>{{ alunos|length }} {{ ('aluno encontrado' if filtrado else 'aluno cadastrado') if alunos|length == 1 else ('alunos encontrados' if filtrado else 'alunos cadastrados') }}</p>
+  </div>
+  <button type="button" class="btn-primario" id="abrir-modal">{{ icon('plus', 16) }}Novo Aluno</button>
+</div>
+
+<form class="card filtros" method="get" action="{{ url_for('alunos') }}">
+  <div class="busca-hist">{{ icon('search', 16) }}<input type="search" name="q" value="{{ q }}" placeholder="Buscar por nome, matrícula ou turma..."></div>
+  <select name="turma" onchange="this.form.submit()">
+    <option value="">Todas</option>
+    {% for t in turmas %}<option value="{{ t }}" {{ 'selected' if t == turma }}>{{ t }}</option>{% endfor %}
+  </select>
+  <input type="date" name="data" value="{{ data }}" onchange="this.form.submit()" title="Alunos atendidos na data">
+</form>
+
+<section class="card tabela-card">
+  <table class="tabela">
+    <thead><tr><th>Aluno</th><th>Turma</th><th>Matrícula</th><th class="c">Atendimentos</th><th>Último</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for a in alunos %}
+      <tr>
+        <td><div class="aluno-cel"><span class="avatar">{{ a.nome|iniciais }}</span>
+          <div><strong>{{ a.nome }}</strong><small>{{ a.curso or '—' }}</small></div></div></td>
+        <td><span class="turma-tag mono">{{ a.turma or '—' }}</span></td>
+        <td class="mono mat">{{ a.matricula }}</td>
+        <td class="c total">{{ a.total }}</td>
+        <td class="ult">{{ a.ultimo|dataBR if a.ultimo else '–' }}</td>
+        <td><span class="badge {{ 'verde' if a.ativo else 'vermelho' }}">{{ 'Ativo' if a.ativo else 'Inativo' }}</span></td>
+        <td class="acoes">
+          <a class="btn-sec peq" href="{{ url_for('historico', q=a.nome) }}">Histórico</a>
+          <a class="btn-primario peq" href="{{ url_for('novo_atendimento', aluno=a.id) }}">Atender</a>
+          <form method="post" action="{{ url_for('nova_senha_aluno', aluno_id=a.id) }}" style="display:inline"
+                onsubmit='return confirm({{ ("Voltar a senha de " ~ a.nome ~ " para a inicial (data de nascimento)?")|tojson }})'>
+            <button type="submit" class="btn-sec peq" title="Voltar para a senha inicial (data de nascimento)">Senha</button></form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7"><p class="vazio">Nenhum aluno encontrado.</p></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<dialog id="modal-aluno" class="modal">
+  <form method="post" action="{{ url_for('novo_aluno') }}" autocomplete="off">
+    <header><h3>Cadastrar Novo Aluno</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
+    <div class="modal-corpo">
+      <div class="campo"><label for="m-nome">Nome completo</label><input type="text" id="m-nome" name="nome" required placeholder="Nome do aluno"></div>
+      <div class="grid g2">
+        <div class="campo"><label for="m-mat">Matrícula</label><input type="text" id="m-mat" name="matricula" class="mono" required placeholder="2025120IIPI0000"></div>
+        <div class="campo"><label for="m-nasc">Data de nascimento</label><input type="date" id="m-nasc" name="data_nascimento" required min="1950-01-01"></div>
+      </div>
+      <div class="grid g2"><div class="campo"><label for="m-turma">Turma</label><input type="text" id="m-turma" name="turma" placeholder="2° INFO"></div>
+        <div class="campo"><label for="m-sexo">Sexo</label><select id="m-sexo" name="sexo" required>
+          <option value="">Selecione</option><option value="F">Feminino</option><option value="M">Masculino</option></select></div></div>
+      <div class="campo"><label for="m-curso">Curso</label><input type="text" id="m-curso" name="curso" placeholder="Técnico em Informática para Internet"></div>
+      <div class="campo"><label for="m-campus">Campus</label><input type="text" id="m-campus" name="campus" placeholder="Paulistana"></div>
+    </div>
+    <footer><button type="button" class="btn-sec fechar">Cancelar</button><button type="submit" class="btn-primario">Salvar Cadastro</button></footer>
+  </form>
+</dialog>
+
+<script>
+  (() => {
+    const m = document.getElementById('modal-aluno');
+    document.getElementById('abrir-modal').onclick = () => m.showModal();
+    m.querySelectorAll('.fechar').forEach(b => (b.onclick = () => m.close()));
+    m.addEventListener('click', e => { if (e.target === m) m.close(); });
+  })();
+</script>
+{% endblock %}
