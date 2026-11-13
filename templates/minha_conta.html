@@ -1,0 +1,44 @@
+{% extends "base_app.html" %}
+{% block titulo %}Minha conta · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="estreito">
+  <div class="page-head"><div>
+    <h1>Minha conta</h1>
+    <p>{{ user.usuario }}{% if user.senha_alterada_em %} · senha alterada em {{ user.senha_alterada_em|datahora }}{% endif %}</p>
+  </div></div>
+
+  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" data-form-senha autocomplete="off">
+    <input type="hidden" name="acao" value="senha">
+    <h3>Trocar senha</h3>
+    <div class="campo"><label for="c-atual">Senha atual</label>
+      <input type="password" id="c-atual" name="atual" autocomplete="current-password" required></div>
+    <div class="grid g2">
+      <div class="campo"><label for="c-nova">Nova senha</label>
+        <input type="password" id="c-nova" name="nova" autocomplete="new-password" minlength="6" required data-nova></div>
+      <div class="campo"><label for="c-conf">Confirme a nova senha</label>
+        <input type="password" id="c-conf" name="confirma" autocomplete="new-password" required data-confirma></div>
+    </div>
+    {% include "_regras_senha.html" %}
+    <button type="submit" class="btn-primario enviar">Salvar nova senha</button>
+  </form>
+
+  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" autocomplete="off">
+    <input type="hidden" name="acao" value="contatos">
+    <h3>Contatos de recuperação</h3>
+    {% if user.perfil == 'aluno' %}<p class="nota">O seu e-mail também serve para entrar no sistema, junto com a matrícula.</p>{% endif %}
+    <p class="nota">Se você esquecer a senha, o código de recuperação é enviado para um destes contatos.</p>
+    <div class="grid g2">
+      <div class="campo"><label for="c-email">E-mail de recuperação</label>
+        <input type="text" id="c-email" name="email_recuperacao" value="{{ user.email_recuperacao or '' }}" inputmode="email" required></div>
+      <div class="campo"><label for="c-tel">Telefone (SMS)</label>
+        <input type="text" id="c-tel" name="telefone_recuperacao" value="{{ user.telefone_recuperacao or '' }}" inputmode="tel"
+               placeholder="(89)99999-9999" maxlength="14" required data-telefone></div>
+    </div>
+    <div class="campo"><label for="c-atual2">Senha atual (para confirmar)</label>
+      <input type="password" id="c-atual2" name="atual" autocomplete="current-password" required></div>
+    <button type="submit" class="btn-primario enviar">Salvar contatos</button>
+  </form>
+</div>
+<script src="{{ url_for('static', filename='js/senha.js') }}"></script>
+{% endblock %}
