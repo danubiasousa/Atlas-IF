@@ -51,3 +51,68 @@
 
     <div class="campo"><label for="m-motivo">Motivo do atendimento</label>
       <textarea id="m-motivo" name="motivo" rows="4" maxlength="300" required placeholder="Descreva brevemente o motivo da solicitação..."></textarea></div>
+
+      <div class="aviso-verde">Atendimento de segunda a sexta, das 8h00 às 12h30 e das 14h00 às 18h00, seguindo o calendário acadêmico
+      (sem sábados, domingos, feriados, pontos facultativos e recesso).</div>
+
+    <label class="aviso-aula"><input type="checkbox" name="em_aula" value="1">
+      <span><b>Estarei em horário de aula</b><small>Essa informação ajuda o setor a emitir a declaração de comparecimento quando necessário.</small></span></label>
+
+    <button type="submit" class="btn-primario enviar">Enviar solicitação</button>
+  </form>
+
+  <script>
+    (() => {
+      const f = document.getElementById('form-marcar'), sel = document.getElementById('m-hora');
+      const data = document.getElementById('m-data'), aviso = document.getElementById('aviso-dia');
+      const avisoTxt = aviso.querySelector('span'), avisoBtn = aviso.querySelector('button');
+      const enviar = f.querySelector('button[type=submit]');
+      const url = "{{ url_for('api_horarios') }}";
+      let pedido = 0;
+
+      async function horarios() {
+        const r = f.querySelector('input[name=profissional_id]:checked');
+        sel.innerHTML = '';
+        if (!r || !data.value) return;
+        const meu = ++pedido;
+        sel.add(new Option('Carregando...', ''));
+        try {
+          const resp = await fetch(`${url}?profissional_id=${r.value}&data=${data.value}`);
+          const j = await resp.json();
+          if (meu !== pedido) return;
+          sel.innerHTML = '';
+          j.slots.forEach(s => {
+            const o = new Option(s.livre ? s.l : `${s.l} (${s.motivo})`, s.v);
+            o.disabled = !s.livre;
+            sel.add(o);
+          });
+          const primeiroLivre = [...sel.options].find(o => !o.disabled);
+          if (primeiroLivre) primeiroLivre.selected = true;
+          aviso.hidden = !j.bloqueado;
+          avisoTxt.textContent = j.bloqueado ? j.bloqueado + (j.proximo_br ? `. Próximo dia útil: ${j.proximo_br}.` : '.') : '';
+          avisoBtn.hidden = !j.proximo;
+          avisoBtn.onclick = () => { data.value = j.proximo; horarios(); };
+          enviar.disabled = !!j.bloqueado || !primeiroLivre;
+          sel.required = true;
+        } catch (e) {
+          sel.innerHTML = '';
+          r.dataset.slots && JSON.parse(r.dataset.slots).forEach(s => sel.add(new Option(s.l, s.v)));
+          enviar.disabled = false;
+        }
+      }
+      function tipo() {
+        const t = f.querySelector('input[name=tipo]:checked').value;
+        f.querySelectorAll('.grupo-prof, .nota-tipo').forEach(el => (el.hidden = el.dataset.tipo !== t));
+        const primeiro = f.querySelector(`.grupo-prof[data-tipo="${t}"] input`);
+        if (primeiro) primeiro.checked = true;
+        horarios();
+      }
+      f.querySelectorAll('input[name=tipo]').forEach(r => r.addEventListener('change', tipo));
+      f.querySelectorAll('input[name=profissional_id]').forEach(r => r.addEventListener('change', horarios));
+      data.addEventListener('change', horarios);
+      horarios();
+    })();
+  </script>
+  {% endif %}
+</div>
+{% endblock %}
