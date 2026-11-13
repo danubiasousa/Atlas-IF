@@ -1,0 +1,36 @@
+{% extends "base_publico.html" %}
+{% block titulo %}ATLAS IF – Primeiro acesso{% endblock %}
+{% block caixa %}
+        <h2>{{ 'Crie sua senha' if troca else 'Contatos de recuperação' }}</h2>
+        <p class="subtitle">
+          Olá, {{ user.nome.split()[0] }}!
+          {% if troca %}Você entrou com a senha inicial. Escolha a sua senha pessoal e cadastre como recuperar o acesso.
+          {% else %}Cadastre um e-mail e um telefone para receber o código caso esqueça a senha.{% endif %}
+        </p>
+
+        {% include "_mensagens_publico.html" %}
+
+        <form method="post" action="{{ url_for('primeiro_acesso') }}" data-form-senha autocomplete="off">
+          {% if troca %}
+          <label for="nova">Nova senha</label>
+          <div class="campo-senha">
+            <input type="password" id="nova" name="nova" autocomplete="new-password" required minlength="6" data-nova>
+            <button type="button" class="olho" data-olho="nova" aria-label="Mostrar senha">Mostrar</button>
+          </div>
+          <label for="confirma">Confirme a nova senha</label>
+          <input type="password" id="confirma" name="confirma" autocomplete="new-password" required data-confirma>
+          {% include "_regras_senha.html" %}
+          {% endif %}
+
+          <label for="email_recuperacao">E-mail de recuperação</label>
+          {% if user.perfil == 'aluno' %}<p class="dica">Depois você também poderá entrar com este e-mail, além da matrícula.</p>{% endif %}
+          <input type="email" id="email_recuperacao" name="email_recuperacao" value="{{ email }}" placeholder="seuemail@gmail.com" required>
+
+          <label for="telefone_recuperacao">Telefone de recuperação (SMS)</label>
+          <input type="tel" id="telefone_recuperacao" name="telefone_recuperacao" value="{{ telefone }}" placeholder="(89)99999-9999" maxlength="14"
+                 inputmode="tel" required data-telefone>
+
+          <button type="submit">Salvar e entrar</button>
+        </form>
+        <a class="link-esqueci centro" href="{{ url_for('sair') }}">Cancelar e voltar ao login</a>
+{% endblock %}
