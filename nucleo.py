@@ -199,3 +199,106 @@ def init_db():
             cur.execute("SHOW COLUMNS FROM estoque LIKE %s", (col,))
             if not cur.fetchone():
                 cur.execute(f"ALTER TABLE estoque ADD COLUMN {col} {ddl}")
+
+                  cur.execute("SELECT COUNT(*) n FROM estoque WHERE categoria IS NOT NULL")
+        if cur.fetchone()["n"] == 0:   
+            cur.execute("UPDATE estoque SET item='Luva Procedimento M' WHERE item='Luva M'")
+            for item, cat, unid, forn, qtd, minimo, val in MATERIAIS_INICIAIS:
+                val = f"{val}-01" if val else None
+                cur.execute("SELECT id FROM estoque WHERE item=%s", (item,))
+                row = cur.fetchone()
+                if row:
+                    cur.execute("UPDATE estoque SET categoria=%s, unidade=%s, fornecedor=%s, validade=%s WHERE id=%s",
+                                (cat, unid, forn, val, row["id"]))
+                else:
+                    cur.execute("INSERT INTO estoque (item, categoria, unidade, fornecedor, quantidade, ideal, validade) "
+                                "VALUES (%s,%s,%s,%s,%s,%s,%s)", (item, cat, unid, forn, qtd, minimo, val))
+
+        for col, ddl in {"usuario_id": "INT UNSIGNED NULL"}.items():
+            cur.execute("SHOW COLUMNS FROM alunos LIKE %s", (col,))
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE alunos ADD COLUMN {col} {ddl}")
+        for col, ddl in {"aluno_id": "INT UNSIGNED NULL", "tipo": "VARCHAR(20) NULL", "data_preferencial": "DATE NULL",
+                         "horario": "VARCHAR(5) NULL", "em_aula": "TINYINT(1) NOT NULL DEFAULT 0",
+                         "justificativa": "VARCHAR(300) NULL"}.items():
+            cur.execute("SHOW COLUMNS FROM solicitacoes LIKE %s", (col,))
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE solicitacoes ADD COLUMN {col} {ddl}")
+        cur.execute("ALTER TABLE solicitacoes MODIFY motivo VARCHAR(300) NOT NULL")
+        cur.execute("SELECT id, nome, matricula, data_nascimento FROM alunos WHERE usuario_id IS NULL")
+        for al in cur.fetchall():
+            criar_login_aluno(cur, al["id"], al["matricula"], al["nome"], al["data_nascimento"])
+
+        for col, ddl in {"campus": "VARCHAR(60) NULL", "siape": "VARCHAR(20) NULL"}.items():
+            cur.execute("SHOW COLUMNS FROM usuarios LIKE %s", (col,))
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE usuarios ADD COLUMN {col} {ddl}")
+        cur.execute("SHOW COLUMNS FROM usuarios LIKE 'nivel'")
+        if not cur.fetchone():
+            cur.execute("ALTER TABLE usuarios ADD COLUMN nivel VARCHAR(20) NOT NULL DEFAULT 'Operador' AFTER cargo")
+            cur.execute("UPDATE usuarios SET nivel='Supervisor' WHERE usuario='mariana.moura@ifpi.edu.br'")
+        cur.execute("UPDATE usuarios SET campus='Paulistana' WHERE campus IS NULL AND perfil <> 'aluno'")
+
+        for col, ddl in {"trocar_senha": "TINYINT(1) NOT NULL DEFAULT 1", "email_recuperacao": "VARCHAR(120) NULL",
+                         "telefone_recuperacao": "VARCHAR(20) NULL", "senha_alterada_em": "DATETIME NULL"}.items():
+            cur.execute("SHOW COLUMNS FROM usuarios LIKE %s", (col,))
+            if not cur.fetchone():
+                cur.execute(f"ALTER TABLE usuarios ADD COLUMN {col} {ddl}")
+
+        cur.execute("SHOW COLUMNS FROM atendimentos LIKE 'finalizado_em'")
+        if not cur.fetchone():
+            cur.execute("ALTER TABLE atendimentos ADD COLUMN finalizado_em DATETIME NULL")
+
+        cur.execute("CREATE TABLE IF NOT EXISTS migracoes (nome VARCHAR(60) PRIMARY KEY, feita_em DATETIME NOT NULL)")
+        cur.execute("SELECT 1 FROM migracoes WHERE nome = 'senhas_padrao_2026'")
+        if not cur.fetchone():
+            cur.execute("SELECT u.id, u.perfil, al.matricula, al.data_nascimento FROM usuarios u "
+                        "LEFT JOIN alunos al ON al.usuario_id = u.id WHERE u.trocar_senha = 1")
+            for u in cur.fetchall():
+                senha = (senha_aluno(u["data_nascimento"], u["matricula"]) if u["perfil"] == "aluno" and u["matricula"]
+                         else SENHA_PADRAO_SERVIDOR)
+                cur.execute("UPDATE usuarios SET senha_hash=%s WHERE id=%s", (generate_password_hash(senha), u["id"]))
+            cur.execute("INSERT INTO migracoes VALUES ('senhas_padrao_2026', %s)", (agora(),))
+
+        cur.execute("SELECT 1 FROM migracoes WHERE nome = 'alunos_nov_2026'")
+        if not cur.fetchone():
+            for nome, nasc in [("Sthefany Kailane Lima de Sousa", date(2010, 3, 20)),
+                               ("Danúbia Coelho de Sousa", date(2009, 4, 19)),
+                               ("Maria Aparecida Coelho de Sousa", date(2009, 10, 21)),
+                               ("Geovane Moura Gomes", date(2010, 1, 28))]:
+                cur.execute("SELECT id, matricula, usuario_id FROM alunos WHERE nome = %s", (nome,))
+                for al in cur.fetchall():
+                    cur.execute("UPDATE alunos SET data_nascimento = %s WHERE id = %s", (nasc, al["id"]))
+                    if al["usuario_id"]:
+                        cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=1 WHERE id=%s",
+                                    (generate_password_hash(nasc.strftime("%d%m%Y")), al["usuario_id"]))
+                    else:
+                        criar_login_aluno(cur, al["id"], al["matricula"], nome, nasc)
+            cur.execute("SELECT id, nome, usuario_id FROM alunos WHERE nome LIKE %s", ("Ana Caroliny%",))
+            for al in cur.fetchall():
+                for tabela in ("atendimentos", "retornos", "solicitacoes"):
+                    cur.execute(f"DELETE FROM {tabela} WHERE aluno_nome = %s", (al["nome"],))
+                cur.execute("DELETE FROM procedimentos_odonto WHERE aluno_id = %s", (al["id"],))
+                cur.execute("DELETE FROM alunos WHERE id = %s", (al["id"],))
+                if al["usuario_id"]:
+                    cur.execute("DELETE FROM codigos_recuperacao WHERE usuario_id = %s", (al["usuario_id"],))
+                    cur.execute("DELETE FROM usuarios WHERE id = %s AND perfil = 'aluno'", (al["usuario_id"],))
+            cur.execute("INSERT INTO migracoes VALUES ('alunos_nov_2026', %s)", (agora(),))
+    con.close()
+
+
+def registrar_acesso(usuario, sucesso):
+    with get_db().cursor() as cur:
+        cur.execute(
+            "INSERT INTO log_acessos (usuario, sucesso, ip) VALUES (%s,%s,%s)",
+            (usuario, int(sucesso), request.remote_addr),
+        )
+
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*a, **kw):
+        if "user_id" not in session:
+            return redirect(url_for("login"))
+        return f(*a, **kw)
+    return wrapper
