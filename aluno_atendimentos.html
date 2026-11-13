@@ -1,0 +1,50 @@
+{% extends "base_app.html" %}
+{% set ativo = 'meus' %}
+{% block titulo %}Meus atendimentos · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="page-head"><div>
+  <h1>Meus Atendimentos</h1>
+  <p>{{ registros|length }} {{ 'registro vinculado' if registros|length == 1 else 'registros vinculados' }} à sua matrícula</p>
+</div></div>
+
+{% if solicitacoes %}
+<section class="card minhas">
+  <h3>Solicitações de agendamento</h3>
+  <p class="sub">Confira se o atendimento foi confirmado ou recusado antes de comparecer ao setor.</p>
+  {% include "_solicitacoes_lista.html" %}
+</section>
+{% endif %}
+
+<form class="card filtros" method="get" action="{{ url_for('aluno_atendimentos') }}">
+  <input type="hidden" name="tipo" value="{{ tipo }}">
+  {% for rotulo, valor in [('Todos', ''), ('Atendimento', 'Atendimento'), ('Retorno', 'Retorno'), ('Encaminhamento', 'Encaminhamento')] %}
+    <a class="chip {{ 'ativo' if tipo == valor }}" href="{{ url_for('aluno_atendimentos', tipo=valor or None, data=data or None) }}">{{ rotulo }}</a>
+  {% endfor %}
+  <input type="date" name="data" value="{{ data }}" onchange="this.form.submit()">
+</form>
+
+{% for r in registros %}
+<details class="card hist">
+  <summary>
+    <span class="avatar">{{ r.aluno_nome|iniciais }}</span>
+    <div class="grow"><strong>{{ r.aluno_nome }}</strong><small>{{ r.queixa }}</small></div>
+    <div class="tags">
+      <span class="tag {{ r.tipo|lower }}">{{ r.tipo }}</span>
+      {% if r.status != r.tipo and not (r.tipo == 'Encaminhamento' and r.status == 'Encaminhado') %}<span class="badge {{ {'Concluído':'verde','Retorno':'amarelo','Encaminhado':'azul'}[r.status] }}">{{ r.status }}</span>{% endif %}
+    </div>
+    <span class="mono data-hist">{{ r.data_hora|datahora }}</span>
+    {{ icon('chevron', 16) }}
+  </summary>
+  <div class="detalhes">
+    <p><span>Código</span><b class="mono">{{ r.codigo }}</b></p>
+    <p><span>Profissional</span><b>{{ r.prof_nome or '—' }}{% if r.prof_cargo %} – {{ r.prof_cargo }}{% endif %}</b></p>
+    {% for rotulo, v in [('Procedimentos', r.procedimentos), ('Medicamentos administrados', r.medicamentos_adm), ('Encaminhado por', r.encaminhado_por), ('Orientações', r.orientacoes)] %}
+      {% if v %}<p><span>{{ rotulo }}</span><b>{{ v }}</b></p>{% endif %}
+    {% endfor %}
+  </div>
+</details>
+{% else %}
+<div class="card"><p class="vazio">Nenhum atendimento encontrado.</p></div>
+{% endfor %}
+{% endblock %}
