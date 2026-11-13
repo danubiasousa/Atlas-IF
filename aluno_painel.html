@@ -1,0 +1,35 @@
+{% extends "base_app.html" %}
+{% set ativo = 'painel' %}
+{% block titulo %}Portal do Aluno · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="estreito largo">
+  <section class="hero">
+    <p>Portal do Aluno</p>
+    <h1>Olá, {{ session['nome']|primeiro_nome }}</h1>
+    <span class="hero-desc">Solicite atendimento no Setor de Saúde e acompanhe exclusivamente os seus próprios registros.</span>
+    <div class="hero-chips"><span class="mono">{{ session['matricula'] }}</span>{% if session['turma'] %}<span>{{ session['turma'] }}</span>{% endif %}</div>
+  </section>
+
+  <section class="acessos">
+    <a class="card acesso" href="{{ url_for('aluno_marcar') }}">
+      <div class="acesso-topo"><span class="ico-caixa verde-bg">{{ icon('calendar', 20) }}</span>{{ icon('arrow', 18) }}</div>
+      <h3>Marcar atendimento</h3><p>Envie uma solicitação para atendimento clínico ou odontológico.</p>
+    </a>
+    <a class="card acesso" href="{{ url_for('aluno_atendimentos') }}">
+      <div class="acesso-topo"><span class="ico-caixa azul-bg">{{ icon('clock', 20) }}</span>{{ icon('arrow', 18) }}</div>
+      <h3>Meus atendimentos</h3><p>Consulte seus atendimentos, orientações e encaminhamentos anteriores.</p>
+    </a>
+  </section>
+
+  <section class="card minhas">
+    <h3>Minhas solicitações</h3>
+    <p class="sub">Acompanhe confirmações, recusas e justificativas do profissional.</p>
+    {% if solicitacoes %}
+      {% include "_solicitacoes_lista.html" %}
+    {% else %}
+      <div class="vazio-tracejado">Você ainda não possui uma solicitação de atendimento.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
