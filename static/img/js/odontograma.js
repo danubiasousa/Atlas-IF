@@ -54,3 +54,87 @@
     marcas(); historico();
   }
   $('od-todos').onclick = () => { limpar(); ir(BOCA); };
+
+   function historico() {
+    const lista = $('od-lista');
+    lista.innerHTML = '';
+    const itens = registros.filter(r => r.dente === sel).sort((a, b) => b.data.localeCompare(a.data));
+    $('od-cont').textContent = itens.length;
+    if (!itens.length) {
+      const p = document.createElement('p'); p.className = 'vazio-int';
+      p.textContent = sel === BOCA ? 'Nenhum procedimento da boca toda.' : sel ? 'Nenhum registro para este dente.' : 'Selecione um dente no odontograma.';
+      lista.appendChild(p); return;
+    }
+    itens.forEach(r => {
+      const d = document.createElement('div'); d.className = 'od-item';
+      d.innerHTML = '<div class="od-item-topo"><strong></strong><span class="badge"></span></div><small class="mono"></small><p></p><button type="button" class="editar">Editar registro</button>';
+      d.querySelector('strong').textContent = r.procedimento;
+      const bd = d.querySelector('.badge'); bd.textContent = r.situacao; bd.classList.add(CLASSE_SIT[r.situacao] || 'amarelo');
+      d.querySelector('small').textContent = fmt(r.data) + (r.faces.length ? ' · ' + r.faces.join(', ') : '');
+      d.querySelector('p').textContent = r.observacoes || '';
+      d.querySelector('.editar').onclick = () => editar(r);
+      lista.appendChild(d);
+    });
+  }
+
+  function pintarFaces() {
+    document.querySelectorAll('.face').forEach(b => b.classList.toggle('on', faces.has(b.dataset.face)));
+  }
+  document.querySelectorAll('.face').forEach(b => (b.onclick = () => {
+    faces.has(b.dataset.face) ? faces.delete(b.dataset.face) : faces.add(b.dataset.face);
+    pintarFaces();
+  }));
+
+  function limpar() {
+    editando = null; faces = new Set(); pintarFaces();
+    procSel.selectedIndex = 0; $('od-sit').value = 'Planejado'; $('od-obs').value = '';
+    $('od-data').value = dataBase(); $('od-erro').hidden = true;
+    $('od-salvar').textContent = 'Salvar procedimento';
+  }
+
+  function editar(r) {
+    limpar(); editando = r; ir(r.dente);
+    procSel.value = r.procedimento; $('od-sit').value = r.situacao; $('od-data').value = r.data;
+    $('od-obs').value = r.observacoes || ''; faces = new Set(r.faces); pintarFaces();
+    $('od-salvar').textContent = 'Atualizar procedimento';
+  }
+
+  function sincronizar() {
+    $('odonto-json').value = JSON.stringify(registros.filter(r => r.novo || r.sujo)
+      .map(({ id, dente, procedimento, faces, situacao, data, observacoes }) => ({ id, dente, procedimento, faces, situacao, data, observacoes })));
+  }
+
+  $('od-dente').addEventListener('input', e => {
+    if (e.target.readOnly) return;
+    const n = parseInt(e.target.value, 10);
+    if (TODOS.includes(n) && n !== sel) { sel = n; $('od-sub').innerHTML = `Dente <b>${n}</b>`; $('od-hist-sub').textContent = `Registros do dente ${n}`; marcas(); historico(); }
+  });
+
+  $('od-salvar').onclick = () => {
+    const n = sel === BOCA ? BOCA : parseInt($('od-dente').value, 10), erro = $('od-erro');
+    if (n === BOCA && !procSel.selectedOptions[0].hasAttribute('data-boca-toda')) {
+      erro.textContent = 'Em “Todos os dentes” escolha limpeza, raspagem, flúor, avaliação ou orientação.'; erro.hidden = false; return;
+    }
+    if (n !== BOCA && !TODOS.includes(n)) { erro.textContent = 'Selecione um dente (11–18, 21–28, 31–38 ou 41–48) ou “Todos os dentes”.'; erro.hidden = false; return; }
+    const dado = { dente: n, procedimento: procSel.value, faces: n === BOCA ? [] : [...faces], situacao: $('od-sit').value,
+                   data: $('od-data').value || dataBase(), observacoes: $('od-obs').value.trim() };
+    if (editando) { Object.assign(editando, dado); editando.sujo = true; }
+    else registros.push({ id: null, novo: true, ...dado });
+    sincronizar(); limpar(); ir(n);
+  };
+  $('od-cancelar').onclick = () => { limpar(); if (sel !== null) ir(sel); };
+
+  async function carregar(id) {
+    registros = []; sincronizar(); marcas(); historico();
+    try {
+      const r = await fetch(`/api/alunos/${id}/odonto`);
+      registros = (await r.json()).map(x => ({ ...x, faces: x.faces ? x.faces.split(', ') : [] }));
+    } catch (_) { registros = []; }
+    marcas(); historico();
+  }
+  document.addEventListener('aluno-selecionado', e => carregar(e.detail.id));
+  document.addEventListener('aluno-limpo', () => { registros = registros.filter(r => r.novo); marcas(); historico(); });
+
+  historico();
+  if ($('aluno_id').value) carregar($('aluno_id').value);
+})();
