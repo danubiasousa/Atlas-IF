@@ -357,3 +357,52 @@ def criar_login_aluno(cur, aluno_id, matricula, nome, nascimento=None):
         print(f"[ATLAS IF] Login criado para {nome}: usuário {usuario} · senha inicial {senha}", flush=True)
     cur.execute("UPDATE alunos SET usuario_id = %s WHERE id = %s", (uid, aluno_id))
     return senha
+
+    @app.template_filter("iniciais")
+def iniciais(nome):
+    p = nome.split()
+    return (p[0][0] + (p[1][0] if len(p) > 1 else "")).upper()
+
+
+@app.template_filter("primeiro_nome")
+def primeiro_nome(nome):
+    return nome.split()[0] if nome else ""
+
+
+@app.template_filter("horario")
+def horario_fmt(h):
+    """'08:00' -> '8h00'"""
+    try:
+        hh, mm = str(h).split(":")[:2]
+        return f"{int(hh)}h{mm}"
+    except ValueError:
+        return str(h or "")
+
+
+@app.template_filter("hora")
+def hora(d):
+    return d.strftime("%H:%M")
+
+
+@app.template_filter("quando")
+def quando(d):
+    delta = (d.date() - date.today()).days
+    prefixo = {0: "Hoje", 1: "Amanhã"}.get(delta, d.strftime("%d/%m"))
+    return f"{prefixo} {d:%H:%M}"
+
+
+
+@app.context_processor
+def globais():
+    d = agora()
+    return {"data_curta": f"{d.day:02d} de {MESES[d.month - 1][:3]}. de {d.year}"}
+
+
+@app.template_filter("dataBR")
+def data_br(d):
+    return d.strftime("%d/%m/%Y")
+
+
+@app.template_filter("datahora")
+def datahora(d):
+    return d.strftime("%d/%m/%Y %H:%M")
