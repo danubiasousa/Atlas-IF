@@ -244,3 +244,284 @@ def enviar_codigo_rec():
             flash(f"Enviamos um novo código de 6 dígitos para {session['rec_destino']}.", "ok")
         return redirect(url_for("codigo_rec"))
     return render_template("recuperar.html", etapa="canal", versao=VERSAO, canais=canais, user=user)
+
+    @app.route("/esqueci-senha/codigo", methods=["GET", "POST"])
+def codigo_rec():
+    """Etapa 3: só verifica o código."""
+    user = usuario_por_id(session.get("rec_uid")) if session.get("rec_uid") else None
+    if not user or not session.get("rec_canal"):
+        return redirect(url_for("esqueci_senha"))
+    with get_db().cursor() as cur:
+        ult = ultimo_codigo(cur, user["id"])
+    agora_ = agora()
+    espera = max(0, ESPERA_REENVIO - int((agora_ - ult["criado_em"]).total_seconds())) if ult else 0
+    bloqueado = bool(ult and not ult["usado"] and ult["tentativas"] >= MAX_TENTATIVAS)
+    expira = (max(0, int((ult["expira_em"] - agora_).total_seconds()))
+              if ult and not ult["usado"] and not bloqueado else 0)
+    ctx = dict(etapa="codigo", versao=VERSAO, user=user, destino=session.get("rec_destino", ""),
+               espera=espera, expira=expira, bloqueado=bloqueado)
+    if request.method == "POST":
+        digitado = "".join(ch for ch in request.form.get("codigo", "") if ch.isdigit())
+        with get_db().cursor() as cur:
+            cur.execute("SELECT * FROM codigos_recuperacao WHERE usuario_id=%s AND usado=0 AND expira_em > %s "
+                        "ORDER BY id DESC LIMIT 1", (user["id"], agora()))
+            cod = cur.fetchone()
+            if not cod or cod["tentativas"] >= MAX_TENTATIVAS:
+                flash("O código venceu ou foi bloqueado. Clique em “Reenviar código”.")
+                return redirect(url_for("codigo_rec"))
+            if not check_password_hash(cod["codigo_hash"], digitado):
+                cur.execute("UPDATE codigos_recuperacao SET tentativas = tentativas + 1 WHERE id=%s", (cod["id"],))
+                restam = MAX_TENTATIVAS - cod["tentativas"] - 1
+                flash(f"Código incorreto. {'Restam ' + str(restam) + ' tentativa(s).' if restam else 'Peça um novo código.'}")
+                return redirect(url_for("codigo_rec"))
+            cur.execute("UPDATE codigos_recuperacao SET usado=1 WHERE usuario_id=%s", (user["id"],))
+        session["rec_ok_ate"] = (agora() + PRAZO_NOVA_SENHA).isoformat()
+        flash("Código confirmado! Agora crie a sua nova senha.", "ok")
+        return redirect(url_for("nova_senha_rec"))
+    return render_template("recuperar.html", **ctx)
+
+@app.route("/esqueci-senha/nova-senha", methods=["GET", "POST"])
+def nova_senha_rec():
+    """Etapa 4: só depois do código confirmado."""
+    user = usuario_por_id(session.get("rec_uid")) if session.get("rec_uid") else None
+    try:
+        ok_ate = datetime.fromisoformat(session.get("rec_ok_ate", ""))
+    except ValueError:
+        ok_ate = None
+    if not user or not ok_ate:
+        return redirect(url_for("esqueci_senha"))
+    if agora() > ok_ate:
+        session.pop("rec_ok_ate", None)
+        flash("O tempo para criar a senha acabou. Peça um novo código.")
+        return redirect(url_for("enviar_codigo_rec"))
+    if request.method == "POST":
+        f = request.form
+        erro = validar_nova_senha(user, f.get("nova", ""), f.get("confirma", ""))
+        if erro:
+            flash(erro)
+            return redirect(url_for("nova_senha_rec"))
+        with get_db().cursor() as cur:
+            cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=0, senha_alterada_em=%s WHERE id=%s",
+                        (generate_password_hash(f["nova"]), agora(), user["id"]))
+        session.clear()
+        flash("Senha redefinida e salva com sucesso. Entre com a sua nova senha.", "ok")
+        return redirect(url_for("login"))
+    return render_template("recuperar.html", etapa="senha", versao=VERSAO, user=user, regras=REGRAS_SENHA,
+                           especiais=ESPECIAIS)
+
+@app.route("/conta", methods=["GET", "POST"])
+@login_required
+def minha_conta():
+    user = usuario_por_id(session["user_id"])
+    if not user:
+        session.clear()
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        f = request.form
+        if not check_password_hash(user["senha_hash"], f.get("atual", "")):
+            flash("Senha atual incorreta.", "erro")
+            return redirect(url_for("minha_conta"))
+        with get_db().cursor() as cur:
+            if f.get("acao") == "senha":
+                erro = validar_nova_senha(user, f.get("nova", ""), f.get("confirma", ""), user["senha_hash"])
+                if erro:
+                    flash(erro, "erro")
+                    return redirect(url_for("minha_conta"))
+                cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=0, senha_alterada_em=%s WHERE id=%s",
+                            (generate_password_hash(f["nova"]), agora(), user["id"]))
+                flash("Senha alterada com sucesso.", "ok")
+            else:
+                email = normalizar_email(f.get("email_recuperacao"))
+                tel = normalizar_telefone(f.get("telefone_recuperacao"))
+                if not email or not tel:
+                    flash("Informe um e-mail válido e um telefone com DDD.", "erro")
+                    return redirect(url_for("minha_conta"))
+                if user["perfil"] == "aluno" and email_em_uso(email, user["id"]):
+                    flash("Esse e-mail já está cadastrado para outra pessoa. Use outro e-mail.", "erro")
+                    return redirect(url_for("minha_conta"))
+                cur.execute("UPDATE usuarios SET email_recuperacao=%s, telefone_recuperacao=%s WHERE id=%s",
+                            (email, tel, user["id"]))
+                flash("Contatos de recuperação atualizados.", "ok")
+        return redirect(url_for("minha_conta"))
+    return render_template("minha_conta.html", ativo="conta", user=user, regras=REGRAS_SENHA, especiais=ESPECIAIS)
+
+@app.route("/alunos")
+@profissional_required
+def alunos():
+    q, turma, data = (request.args.get(k, "").strip() for k in ("q", "turma", "data"))
+    where, args = [], []
+    if q:
+        where.append("(al.nome LIKE %s OR al.matricula LIKE %s OR al.turma LIKE %s)"); args += [f"%{q}%"] * 3
+    if turma:
+        where.append("al.turma = %s"); args.append(turma)
+    if data:
+        where.append("EXISTS (SELECT 1 FROM atendimentos x WHERE x.aluno_id = al.id AND DATE(x.data_hora) = %s)"); args.append(data)
+    sql = ("SELECT al.*, COUNT(a.id) AS total, MAX(a.data_hora) AS ultimo FROM alunos al "
+           "LEFT JOIN atendimentos a ON a.aluno_id = al.id " + ("WHERE " + " AND ".join(where) + " " if where else "")
+           + "GROUP BY al.id ORDER BY al.nome")
+    with get_db().cursor() as cur:
+        cur.execute(sql, args)
+        lista = cur.fetchall()
+        cur.execute("SELECT DISTINCT turma FROM alunos WHERE turma IS NOT NULL AND turma <> '' ORDER BY turma")
+        turmas = [r["turma"] for r in cur.fetchall()]
+    return render_template("alunos.html", alunos=lista, turmas=turmas, q=q, turma=turma, data=data,
+                           filtrado=bool(where))
+
+@app.route("/alunos/novo", methods=["POST"])
+@profissional_required
+def novo_aluno():
+    f = request.form
+    nome = f.get("nome", "").strip()
+    matricula = f.get("matricula", "").strip().upper().replace(" ", "")
+    if not nome or not matricula:
+        flash("Informe o nome completo e a matrícula do aluno.", "erro")
+        return redirect(url_for("alunos"))
+    try:
+        nasc = datetime.strptime(f.get("data_nascimento", ""), "%Y-%m-%d").date()
+    except ValueError:
+        nasc = None
+    if not nasc or not (date(1950, 1, 1) <= nasc <= agora().date()):
+        flash("Informe a data de nascimento do aluno: ela é a senha inicial dele.", "erro")
+        return redirect(url_for("alunos"))
+    try:
+        with get_db().cursor() as cur:
+            cur.execute("INSERT INTO alunos (nome, matricula, turma, curso, campus, data_nascimento, sexo) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s)",
+                        (nome, matricula, f.get("turma", "").strip() or None, f.get("curso", "").strip() or None,
+                         f.get("campus", "").strip() or "Paulistana", nasc,
+                         f.get("sexo") if f.get("sexo") in ("F", "M") else None))
+            senha = criar_login_aluno(cur, cur.lastrowid, matricula, nome, nasc)
+    except pymysql.err.IntegrityError:
+        flash(f"Já existe um aluno com a matrícula {matricula}.", "erro")
+        return redirect(url_for("alunos"))
+    flash(f"Aluno {nome} cadastrado. Login: {matricula} · senha inicial: {senha} (data de nascimento). "
+          "No primeiro acesso o aluno cria a própria senha.", "ok")
+    return redirect(url_for("alunos"))
+
+@app.route("/alunos/<int:aluno_id>/nova-senha", methods=["POST"])
+@profissional_required
+def nova_senha_aluno(aluno_id):
+    """Para o aluno que perdeu a senha e não tem contato de recuperação cadastrado."""
+    with get_db().cursor() as cur:
+        cur.execute("SELECT nome, matricula, usuario_id, data_nascimento FROM alunos WHERE id = %s", (aluno_id,))
+        al = cur.fetchone()
+        if not al:
+            return redirect(url_for("alunos"))
+        senha = senha_aluno(al["data_nascimento"], al["matricula"])
+        if not al["usuario_id"]:
+            senha = criar_login_aluno(cur, aluno_id, al["matricula"], al["nome"], al["data_nascimento"])
+        else:
+            cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=1 WHERE id=%s AND perfil='aluno'",
+                        (generate_password_hash(senha), al["usuario_id"]))
+    origem = "data de nascimento" if al["data_nascimento"] else "matrícula — cadastre a data de nascimento do aluno"
+    flash(f"Senha de {al['nome']} voltou para a inicial: {senha} ({origem}). Login: {al['matricula']}. "
+          "No próximo acesso o aluno cria uma senha nova.", "ok")
+    return redirect(url_for("alunos"))
+
+NIVEIS = ["Operador", "Supervisor"]
+
+def ler_usuario(f):
+    nome = f.get("nome", "").strip()
+    if not nome:
+        return None, "Informe o nome completo."
+    nivel = f.get("nivel") if f.get("nivel") in NIVEIS else "Operador"
+    siape = "".join(ch for ch in f.get("siape", "") if ch.isdigit())[:20] or None
+    return {"nome": nome[:120], "cargo": f.get("cargo", "").strip()[:80] or None,
+            "campus": f.get("campus", "").strip()[:60] or "Paulistana", "nivel": nivel, "siape": siape}, None
+
+def supervisores_ativos_exceto(cur, uid):
+    cur.execute("SELECT COUNT(*) n FROM usuarios WHERE perfil <> 'aluno' AND ativo = 1 AND nivel = 'Supervisor' AND id <> %s", (uid,))
+    return cur.fetchone()["n"]
+
+@app.route("/usuarios")
+@supervisor_required
+def usuarios():
+    aba = "atividades" if request.args.get("aba") == "atividades" else "profissionais"
+    with get_db().cursor() as cur:
+        cur.execute("SELECT u.*, (SELECT MAX(l.data_hora) FROM log_acessos l WHERE l.usuario = u.usuario AND l.sucesso = 1) AS ultimo "
+                    "FROM usuarios u WHERE u.perfil <> 'aluno' ORDER BY u.nome")
+        lista = cur.fetchall()
+        atividades = []
+        if aba == "atividades":
+            cur.execute("SELECT l.*, u.nome FROM log_acessos l LEFT JOIN usuarios u ON u.usuario = l.usuario "
+                        "ORDER BY l.data_hora DESC, l.id DESC LIMIT 100")
+            atividades = cur.fetchall()
+    return render_template("usuarios.html", aba=aba, lista=lista, atividades=atividades, niveis=NIVEIS,
+                           ativos=sum(1 for u in lista if u["ativo"]))
+
+@app.route("/usuarios/novo", methods=["POST"])
+@supervisor_required
+def novo_usuario():
+    f = request.form
+    email = f.get("email", "").strip().lower()
+    d, erro = ler_usuario(f)
+    if email and "@" not in email:
+        email += DOMINIO
+    if not erro and not normalizar_email(email):
+        erro = "Informe um e-mail institucional válido."
+    if erro:
+        flash(erro, "erro")
+        return redirect(url_for("usuarios"))
+    senha = SENHA_PADRAO_SERVIDOR
+    try:
+        with get_db().cursor() as cur:
+            cur.execute("INSERT INTO usuarios (usuario, nome, cargo, campus, nivel, siape, senha_hash, perfil) "
+                        "VALUES (%s,%s,%s,%s,%s,%s,%s,'profissional')",
+                        (email, d["nome"], d["cargo"], d["campus"], d["nivel"], d["siape"], generate_password_hash(senha)))
+    except pymysql.err.IntegrityError:
+        flash(f"Já existe um usuário com o e-mail {email}.", "erro")
+        return redirect(url_for("usuarios"))
+    flash(f"Usuário {d['nome']} criado. Senha inicial: {senha} (padrão dos servidores). "
+          "No primeiro acesso a pessoa cria a própria senha.", "ok")
+    return redirect(url_for("usuarios"))
+
+@app.route("/usuarios/<int:uid>/editar", methods=["POST"])
+@supervisor_required
+def editar_usuario(uid):
+    f = request.form
+    d, erro = ler_usuario(f)
+    if erro:
+        flash(erro, "erro")
+        return redirect(url_for("usuarios"))
+    msg = f"Usuário {d['nome']} atualizado."
+    with get_db().cursor() as cur:
+        if d["nivel"] != "Supervisor" and not supervisores_ativos_exceto(cur, uid):
+            cur.execute("SELECT nivel FROM usuarios WHERE id = %s", (uid,))
+            atual = cur.fetchone()
+            if atual and atual["nivel"] == "Supervisor":
+                flash("O sistema precisa de pelo menos um supervisor ativo.", "erro")
+                return redirect(url_for("usuarios"))
+        cur.execute("UPDATE usuarios SET nome=%s, cargo=%s, campus=%s, nivel=%s, siape=%s WHERE id=%s AND perfil <> 'aluno'",
+                    (d["nome"], d["cargo"], d["campus"], d["nivel"], d["siape"], uid))
+        if f.get("nova_senha"):
+            senha = SENHA_PADRAO_SERVIDOR
+            cur.execute("UPDATE usuarios SET senha_hash=%s, trocar_senha=1 WHERE id=%s AND perfil <> 'aluno'",
+                        (generate_password_hash(senha), uid))
+            msg += f" A senha voltou para a inicial: {senha}. No próximo acesso a pessoa cria uma nova."
+    if uid == session["user_id"]:
+        session["nome"], session["cargo"], session["nivel"] = d["nome"], d["cargo"] or "Profissional", d["nivel"]
+    flash(msg)
+    return redirect(url_for("usuarios"))
+
+@app.route("/usuarios/<int:uid>/status", methods=["POST"])
+@supervisor_required
+def status_usuario(uid):
+    if uid == session["user_id"]:
+        flash("Você não pode desativar o seu próprio usuário.", "erro")
+        return redirect(url_for("usuarios"))
+    with get_db().cursor() as cur:
+        cur.execute("SELECT nome, ativo, nivel FROM usuarios WHERE id = %s AND perfil <> 'aluno'", (uid,))
+        u = cur.fetchone()
+        if not u:
+            return redirect(url_for("usuarios"))
+        if u["ativo"] and u["nivel"] == "Supervisor" and not supervisores_ativos_exceto(cur, uid):
+            flash("O sistema precisa de pelo menos um supervisor ativo.", "erro")
+            return redirect(url_for("usuarios"))
+        cur.execute("UPDATE usuarios SET ativo = %s WHERE id = %s", (0 if u["ativo"] else 1, uid))
+    flash(f"Usuário {u['nome']} {'desativado' if u['ativo'] else 'reativado'}.")
+    return redirect(url_for("usuarios"))
+
+@app.route("/sair")
+def sair():
+    session.clear()
+    return redirect(url_for("login"))
