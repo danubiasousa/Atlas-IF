@@ -1,23 +1,75 @@
-ATLAS IF – Sistema de Saúde do IFPI
+# ATLAS IF
 
-O que significa ATLAS?
-A.T.L.A.S. – Acompanhamento Tecnológico de Logística e Atendimentos a Saúde.
-O nome representa a proposta do sistema de centralizar informações, organizar atendimentos e facilitar o acompanhamento da saúde dos estudantes do IFPI.
+**Acompanhamento Tecnológico de Logística e Atendimentos à Saúde do Instituto Federal do Piauí**
+Sistema do Setor de Saúde do IFPI – Campus Paulistana.
 
-Sobre o projeto:
-O projeto será desenvolvido para o Setor Saúde do IFPI. O sistema tem como objetivo solucionar a dificuldade de gerenciamento dos atendimentos realizados atualmente por meio de fichas em papel, tornando o processo mais lento e sujeito à perda de informações.
-A proposta é facilitar o cadastro dos alunos, o registro dos atendimentos, o acompanhamento do histórico clínico e o controle de retornos e encaminhamentos. O sistema também contará com lembretes importantes e controle de acesso aos dados, tornando o atendimento e a organização das informações mais eficientes e seguras.
+Projeto Integrador – Engenharia de Software + Programação Avançada para Web
+Curso Técnico em Informática para Internet – 2º ano – Prof. Sebastião Sales Rodrigues Macedo
 
-Integrantes:
-Danúbia Coelho de Sousa;
-Geovane Moura Gomes;
-Maria Aparecida Coelho de Sousa; e
-Sthefany Kailane Lima de Sousa.
+## Equipe e partes do sistema
 
-Stack tecnológico:
-Python; 
-Flask; 
-MySQL.
+| Integrante | Parte | Arquivos principais |
+|---|---|---|
+| Danúbia Coelho de Sousa | Login, senhas, cadastro de alunos e profissionais, núcleo e banco | `app.py`, `nucleo.py`, `rotas_acesso.py`, `seguranca.py`, `schema.sql` |
+| Geovane Moura Gomes | Agendamentos, horários, calendário acadêmico, painel | `rotas_agendamento.py`, `calendario.py` |
+| Maria Aparecida Coelho de Sousa | Atendimentos, anamnese, sinais vitais, histórico, declaração | `rotas_atendimento.py`, `static/js/atendimento.js` |
+| Sthefany Kailane Lima de Sousa | Odontograma, materiais e medicamentos, visual das telas | `rotas_odonto_materiais.py`, `static/js/odontograma.js`, `static/css/app.css` |
 
-Status do projeto:
-Marco 1: Ok, ambiente configurado.
+## Tecnologias
+Python 3 · Flask · MySQL (XAMPP) · PyMySQL · HTML · CSS · JavaScript
+
+## Como instalar e rodar
+1. Instale o [XAMPP](https://www.apachefriends.org/) e inicie o **MySQL** no painel do XAMPP.
+2. Na pasta do projeto, instale as bibliotecas:
+   ```
+   pip install -r requirements.txt
+   ```
+3. Rode o sistema:
+   ```
+   python app.py
+   ```
+4. Abra `http://127.0.0.1:5000` no navegador.
+   O banco `atlas_if` e as tabelas são criados automaticamente (ou importe o `schema.sql` no phpMyAdmin).
+
+Se o MySQL tiver senha ou outra porta (PowerShell):
+```
+$env:DB_PASSWORD="sua_senha"
+$env:DB_PORT=3307
+python app.py
+```
+
+### Acessar pelo celular
+Com o celular no mesmo Wi-Fi, use o endereço "No celular" que aparece no terminal (ex.: `http://192.168.0.15:5000`).
+
+## Primeiro acesso
+| Perfil | Usuário | Senha inicial |
+|---|---|---|
+| Servidores | `nome.sobrenome` (o @ifpi.edu.br é completado) | `setorsaude2026` |
+| Alunos | matrícula (ou o e-mail cadastrado) | data de nascimento, ex.: `19042009` |
+
+No primeiro login o sistema pede uma nova senha (mínimo 6 caracteres, com maiúscula, minúscula, número e caractere especial) e o e-mail e telefone de recuperação.
+
+## Funcionalidades
+- Login com recuperação de senha por código (e-mail ou SMS), válido por 1 minuto
+- Cadastro de alunos e profissionais
+- Agendamento pelo aluno seguindo o calendário acadêmico (sem sábados, domingos e feriados)
+- Registro de atendimento: anamnese, sinais vitais com alertas por cor, IMC por idade (OMS)
+- Odontograma interativo, inclusive procedimentos em todos os dentes
+- Histórico de atendimentos e declaração de comparecimento
+- Controle de materiais e medicamentos
+- Layout para computador e celular
+
+## Estrutura
+```
+app.py                      arquivo principal (python app.py)
+nucleo.py                   configuração, banco, controle de acesso
+rotas_acesso.py             login, senhas, alunos, usuários
+rotas_agendamento.py        agendamentos e painel
+rotas_atendimento.py        atendimentos, histórico, declaração
+rotas_odonto_materiais.py   odontograma e materiais
+seguranca.py                regras de senha e envio de códigos
+calendario.py               feriados e dias sem atendimento
+schema.sql                  estrutura do banco
+templates/                  telas (HTML)
+static/                     CSS, JavaScript e imagens
+```
