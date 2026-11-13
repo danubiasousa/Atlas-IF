@@ -1,0 +1,53 @@
+{% extends "base_app.html" %}
+{% set ativo = 'marcar' %}
+{% block titulo %}Marcar atendimento · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="estreito medio">
+  <div class="page-head"><div>
+    <h1>Marcar atendimento</h1>
+    <p>Solicite um horário no Setor de Saúde do IFPI Campus Paulistana.</p>
+  </div></div>
+
+  {% if enviada %}
+  <section class="card enviada">
+    <span class="check-grande">{{ icon('check', 22) }}</span>
+    <h3>Solicitação enviada</h3>
+    <p>{{ enviada.prof_nome }} recebeu uma notificação com seu pedido para {{ enviada.data_preferencial|dataBR }}, às {{ enviada.horario|horario }}. O status permanecerá pendente até a confirmação.</p>
+    <a class="btn-sec" href="{{ url_for('aluno_marcar') }}">Fazer outro agendamento</a>
+  </section>
+  {% else %}
+  <form class="card passo" method="post" action="{{ url_for('aluno_marcar') }}" id="form-marcar" autocomplete="off">
+    <div class="solicitante"><span>Solicitante</span><strong>{{ session['nome'] }}</strong><em class="mono">{{ session['matricula'] }}{% if session['turma'] %} · {{ session['turma'] }}{% endif %}</em></div>
+
+    <div>
+      <span class="rotulo-solto">Escolha o tipo de atendimento</span>
+      <div class="grid g2">
+        {% for tipo, g in grupos.items() %}
+        <label class="opcao"><input type="radio" name="tipo" value="{{ tipo }}" {{ 'checked' if loop.first }}>
+          <span class="op-tit"><i class="radio"></i>{{ tipo }}</span><small>{{ g.descricao }}</small></label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <span class="rotulo-solto">Profissional responsável</span>
+      {% for tipo, g in grupos.items() %}
+      <div class="grid g2 grupo-prof" data-tipo="{{ tipo }}" {{ 'hidden' if not loop.first }}>
+        {% for p in g.lista %}
+        <label class="opcao prof"><input type="radio" name="profissional_id" value="{{ p.id }}" data-slots='{{ p.slots|tojson }}' {{ 'checked' if loop.first and grupos|first == tipo }}>
+          <strong>{{ p.nome }}</strong><small>{{ p.cargo }}</small><em>{{ p.turno }} · {{ p.janela }}</em></label>
+        {% endfor %}
+      </div>
+      <p class="nota nota-tipo" data-tipo="{{ tipo }}" {{ 'hidden' if not loop.first }}>{{ g.nota }}</p>
+      {% endfor %}
+    </div>
+
+    <div class="grid g2">
+      <div class="campo"><label for="m-data">Data preferencial</label><input type="date" id="m-data" name="data" value="{{ sugestao }}" min="{{ hoje }}" max="{{ limite }}" required></div>
+      <div class="campo"><label for="m-hora">Horário disponível</label><select id="m-hora" name="horario" required></select></div>
+    </div>
+    <div class="aviso-dia" id="aviso-dia" hidden><span></span><button type="button" hidden>Usar o próximo dia útil</button></div>
+
+    <div class="campo"><label for="m-motivo">Motivo do atendimento</label>
+      <textarea id="m-motivo" name="motivo" rows="4" maxlength="300" required placeholder="Descreva brevemente o motivo da solicitação..."></textarea></div>
