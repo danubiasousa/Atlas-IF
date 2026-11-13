@@ -65,3 +65,52 @@
 </section>
 <p class="nota">Mostrando os 100 acessos mais recentes.</p>
 {% endif %}
+
+<dialog id="modal-usuario" class="modal">
+  <form method="post" id="form-usuario" action="{{ url_for('novo_usuario') }}" autocomplete="off">
+    <header><h3 id="usr-titulo">Novo Usuário</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
+    <div class="modal-corpo">
+      <div class="campo"><label for="u-nome">Nome completo</label><input type="text" id="u-nome" name="nome" required maxlength="120" placeholder="Nome do profissional"></div>
+      <div class="campo"><label for="u-email">E-mail institucional</label><input type="text" id="u-email" name="email" required maxlength="120" placeholder="nome.sobrenome@ifpi.edu.br" autocapitalize="none"></div>
+      <div class="grid g2">
+        <div class="campo"><label for="u-cargo">Cargo</label><input type="text" id="u-cargo" name="cargo" maxlength="80" placeholder="Ex: Enfermeiro(a)"></div>
+        <div class="campo"><label for="u-campus">Campus</label><input type="text" id="u-campus" name="campus" maxlength="60" placeholder="Paulistana"></div>
+      </div>
+      <div class="grid g2">
+        <div class="campo"><label for="u-nivel">Perfil de acesso</label>
+          <select id="u-nivel" name="nivel">{% for n in niveis %}<option value="{{ n }}">{{ n }}</option>{% endfor %}</select></div>
+        <div class="campo"><label for="u-siape">Matrícula SIAPE</label><input type="text" id="u-siape" name="siape" class="mono" inputmode="numeric" maxlength="20" placeholder="0000000"></div>
+      </div>
+      <label class="check-linha" id="linha-senha" hidden><input type="checkbox" name="nova_senha" value="1"> Voltar para a senha inicial "setorsaude2026" (a pessoa cria outra no próximo acesso)</label>
+      <p class="nota" id="nota-usr">A senha inicial dos servidores é <b>setorsaude2026</b>. No primeiro acesso a pessoa cria a própria senha e cadastra e-mail e telefone de recuperação.</p>
+    </div>
+    <footer><button type="button" class="btn-sec fechar">Cancelar</button><button type="submit" class="btn-primario" id="usr-salvar">Criar Usuário</button></footer>
+  </form>
+</dialog>
+
+<script>
+  (() => {
+    const m = document.getElementById('modal-usuario'), f = document.getElementById('form-usuario');
+    const urlNovo = "{{ url_for('novo_usuario') }}", urlEditar = "{{ url_for('editar_usuario', uid=0) }}";
+    const campos = {nome: 'u-nome', email: 'u-email', cargo: 'u-cargo', campus: 'u-campus', nivel: 'u-nivel', siape: 'u-siape'};
+    function abrir(d) {
+      f.reset();
+      const edit = !!d, email = document.getElementById('u-email');
+      f.action = edit ? urlEditar.replace('/0/', `/${d.id}/`) : urlNovo;
+      document.getElementById('usr-titulo').textContent = edit ? 'Editar Usuário' : 'Novo Usuário';
+      document.getElementById('usr-salvar').textContent = edit ? 'Salvar Alterações' : 'Criar Usuário';
+      document.getElementById('linha-senha').hidden = !edit;
+      document.getElementById('nota-usr').hidden = edit;
+      email.readOnly = edit; email.required = !edit;
+      if (edit) for (const [k, id] of Object.entries(campos)) document.getElementById(id).value = d[k] ?? '';
+      m.showModal();
+    }
+    document.querySelectorAll('form[data-confirma]').forEach(fm => fm.addEventListener('submit', e => { if (!confirm(fm.dataset.confirma)) e.preventDefault(); }));
+    const novo = document.getElementById('novo-usuario');
+    if (novo) novo.onclick = () => abrir(null);
+    document.querySelectorAll('.editar-usr').forEach(b => b.onclick = () => abrir({...b.dataset}));
+    m.querySelectorAll('.fechar').forEach(b => (b.onclick = () => m.close()));
+    m.addEventListener('click', e => { if (e.target === m) m.close(); });
+  })();
+</script>
+{% endblock %}
