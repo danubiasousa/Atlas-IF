@@ -179,3 +179,22 @@ def declaracao(atendimento_id):
         fim = a["data_hora"]
     return render_template("declaracao.html", a=a, inicio=a["data_hora"].strftime("%H:%M"), fim=fim.strftime("%H:%M"),
                            campus=a.get("prof_campus") or "Paulistana", novo=request.args.get("novo"))
+
+                           @app.route("/historico")
+@profissional_required
+def historico():
+    q, tipo, data = (request.args.get(k, "").strip() for k in ("q", "tipo", "data"))
+    where, args = [], []
+    if q:
+        where.append("a.aluno_nome LIKE %s"); args.append(f"%{q}%")
+    if tipo in ("Atendimento", "Retorno", "Encaminhamento"):
+        where.append("a.tipo = %s"); args.append(tipo)
+    if data:
+        where.append("DATE(a.data_hora) = %s"); args.append(data)
+    sql = ("SELECT a.*, u.nome AS prof_nome, u.cargo AS prof_cargo FROM atendimentos a "
+           "LEFT JOIN usuarios u ON u.id = a.profissional_id "
+           + ("WHERE " + " AND ".join(where) + " " if where else "") + "ORDER BY a.data_hora DESC LIMIT 200")
+    with get_db().cursor() as cur:
+        cur.execute(sql, args)
+        registros = cur.fetchall()
+    return render_template("historico.html", registros=registros, q=q, tipo=tipo, data=data)
