@@ -161,3 +161,21 @@ def novo_atendimento():
         codigo=f"ATD-{d.year}-{1000 + proximo}", data_iso=d.strftime("%Y-%m-%d"), hora=d.strftime("%H:%M"),
         data_extenso=f"{d.day} de {MESES[d.month - 1]} de {d.year} {d:%H:%M}",
     )
+
+    @app.route("/atendimentos/<int:atendimento_id>/declaracao")
+@profissional_required
+def declaracao(atendimento_id):
+    """Declaração de comparecimento no modelo do IFPI, preenchida com o aluno e o profissional do atendimento."""
+    with get_db().cursor() as cur:
+        cur.execute("SELECT a.*, u.nome AS prof_nome, u.cargo AS prof_cargo, u.campus AS prof_campus "
+                    "FROM atendimentos a LEFT JOIN usuarios u ON u.id = a.profissional_id WHERE a.id = %s",
+                    (atendimento_id,))
+        a = cur.fetchone()
+    if not a:
+        flash("Atendimento não encontrado.", "erro")
+        return redirect(url_for("historico"))
+    fim = a.get("finalizado_em") or a["data_hora"]
+    if fim.date() != a["data_hora"].date() or fim < a["data_hora"]:
+        fim = a["data_hora"]
+    return render_template("declaracao.html", a=a, inicio=a["data_hora"].strftime("%H:%M"), fim=fim.strftime("%H:%M"),
+                           campus=a.get("prof_campus") or "Paulistana", novo=request.args.get("novo"))
