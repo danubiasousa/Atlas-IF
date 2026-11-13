@@ -99,3 +99,47 @@
     int: v => v.replace(/\D/g, ''),
     dec: v => v.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/g, '$1'),
     pa: v => v,   
+     function formatarPA(v, digitando) {
+    let sis, dia;
+    if (v.includes('/')) {
+      const [a, b = ''] = v.split('/');
+      sis = a.replace(/\D/g, '').slice(0, 3); dia = b.replace(/\D/g, '').slice(0, 3);
+      return `${sis}/${dia}`;
+    }
+    const d = v.replace(/\D/g, '');
+    const corte = /^[123]/.test(d) ? 3 : 2;
+    if (d.length > corte) return `${d.slice(0, corte)}/${d.slice(corte, corte + 3)}`;
+    if (d.length === corte && digitando) return `${d}/`;
+    return d;
+  }
+  form.querySelectorAll('[data-filtro], [data-sinal]').forEach(el => {
+    const f = FILTROS[el.dataset.filtro || el.dataset.sinal];
+    el.addEventListener('input', e => {
+      const novo = el.dataset.sinal === 'pa'
+        ? formatarPA(el.value, (e.inputType || '').startsWith('insert'))
+        : f(el.value);
+      if (novo !== el.value) el.value = novo;
+      if (el.dataset.sinal) { conferirSinal(el); classificarSinais(); }
+    });
+  });
+  function conferirSinal(el) {
+    const v = el.value.trim();
+    let msg = '';
+    if (v) {
+      if (el.dataset.sinal === 'pa') {
+        const m = v.match(/^(\d{2,3})\/(\d{2,3})$/);
+        if (!m) msg = 'Use o formato sistólica/diastólica, ex.: 120/80.';
+        else if (+m[1] < 40 || +m[1] > 300 || +m[2] < 20 || +m[2] > 200) msg = 'Valor fora do possível. Confira a digitação.';
+        else if (+m[1] <= +m[2]) msg = 'A sistólica (1º número) precisa ser maior que a diastólica.';
+      } else {
+        const ok = el.dataset.sinal === 'int' ? /^\d{1,3}$/.test(v) : /^\d{1,3}([.,]\d)?$/.test(v);
+        const n = parseFloat(v.replace(',', '.'));
+        if (!ok) msg = 'Digite só números' + (el.dataset.sinal === 'dec' ? ' (ex.: ' + el.placeholder + ').' : '.');
+        else if (n < +el.dataset.min || n > +el.dataset.max) msg = `Valor fora do possível (${el.dataset.min} a ${el.dataset.max}). Confira a digitação.`;
+      }
+    }
+    el.setCustomValidity(msg);
+  }
+  form.querySelectorAll('[data-sinal]').forEach(conferirSinal);
+
+  const num = v => parseFloat(String(v).replace(',', '.'));
