@@ -52,7 +52,7 @@ def mensagem_erros(erros):
     return "A senha precisa " + ", ".join(erros) + "." if erros else ""
 
     def normalizar_email(texto):
-    e = (texto or "").strip().lower()
+                    e = (texto or "").strip().lower()
     return e if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e) and len(e) <= 120 else None
 
 
