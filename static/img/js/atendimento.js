@@ -212,3 +212,39 @@
     if (h.getDate() < d.getDate()) m--;
     return m >= 0 ? m : null;
   }
+  function classificarIMC() {
+    const peso = num(document.getElementById('peso').value), alt = num(document.getElementById('altura').value) / 100;
+    const ver = document.getElementById('imc-ver'), oculto = document.getElementById('imc');
+    ver.value = ''; oculto.value = '';
+    if (!(peso > 0) || !(alt > 0.4) || !document.getElementById('peso').checkValidity()
+        || !document.getElementById('altura').checkValidity()) return null;
+    const imc = peso / (alt * alt), txt = imc.toFixed(1).replace('.', ',');
+    ver.value = txt;
+    const meses = idadeEmMeses(), sexo = document.getElementById('sexo').value;
+    let r;
+    if (meses === null || !sexo) {
+      r = ['atencao', `IMC ${txt}: informe o nascimento e o sexo na etapa 1 para classificar pela tabela de idade.`];
+    } else if (meses >= 240) {         
+      r = imc < 16 ? ['alerta', `IMC ${txt}: magreza grave.`]
+        : imc < 18.5 ? ['atencao', `IMC ${txt}: baixo peso (abaixo de 18,5).`]
+        : imc < 25 ? ['ok', `Peso adequado (IMC ${txt})`]
+        : imc < 30 ? ['atencao', `IMC ${txt}: sobrepeso (25 a 29,9).`]
+        : ['alerta', `IMC ${txt}: obesidade (30 ou mais).`];
+    } else if (meses < 120) {
+      r = ['atencao', `IMC ${txt}: a tabela do sistema começa aos 10 anos; avalie pela curva de crescimento.`];
+    } else {
+      const tab = IMC_OMS[sexo], a = Math.floor(meses / 12), f = (meses % 12) / 12;
+      const lo = tab[a], hi = tab[Math.min(a + 1, 19)];
+      const [m3, m2, p1, p2, p3] = lo.map((v, i) => v + (hi[i] - v) * (a >= 19 ? 0 : f));
+      const fx = v => v.toFixed(1).replace('.', ',');
+      r = imc < m3 ? ['alerta', `IMC ${txt}: magreza acentuada para a idade (abaixo de ${fx(m3)}).`]
+        : imc < m2 ? ['atencao', `IMC ${txt}: magreza para a idade (abaixo de ${fx(m2)}).`]
+        : imc <= p1 ? ['ok', `Peso adequado para a idade (IMC ${txt}; faixa ${fx(m2)} a ${fx(p1)})`]
+        : imc <= p2 ? ['atencao', `IMC ${txt}: sobrepeso para a idade (acima de ${fx(p1)}).`]
+        : imc <= p3 ? ['alerta', `IMC ${txt}: obesidade para a idade (acima de ${fx(p2)}).`]
+        : ['alerta', `IMC ${txt}: obesidade grave para a idade (acima de ${fx(p3)}).`];
+    }
+    const nomes = { ok: 'Adequado', atencao: 'Atenção', alerta: 'Alerta' };
+    oculto.value = `${txt} – ${r[0] === 'ok' ? 'adequado' : r[1].split(': ')[1] || nomes[r[0]]}`.slice(0, 60);
+    return r;
+  }
