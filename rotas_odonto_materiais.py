@@ -62,3 +62,43 @@ def classificar_estoque(qtd, minimo):
         return "Normal", 100
     pct = int(qtd / minimo * 100 + 0.5)
     return ("Crítico" if qtd * 2 < minimo else "Baixo"), pct
+
+    def ler_material(f):
+    item = f.get("item", "").strip()
+    if not item:
+        return None, "Informe o nome do item."
+    try:
+        qtd, minimo = int(f.get("quantidade", "")), int(f.get("ideal", ""))
+    except ValueError:
+        return None, "Informe a quantidade atual e o estoque mínimo (números inteiros)."
+    if qtd < 0 or minimo < 0:
+        return None, "Quantidade e estoque mínimo não podem ser negativos."
+    try:
+        validade = datetime.strptime(f.get("validade", ""), "%Y-%m").date()
+    except ValueError:
+        validade = None
+    return {
+        "item": item[:80], "categoria": f.get("categoria", "").strip()[:40] or None,
+        "unidade": f.get("unidade", "").strip()[:20] or "un.", "fornecedor": f.get("fornecedor", "").strip()[:80] or None,
+        "quantidade": qtd, "ideal": minimo, "validade": validade,
+    }, None
+
+
+@app.route("/materiais")
+@profissional_required
+def materiais():
+    q, cat, status = (request.args.get(k, "").strip() for k in ("q", "categoria", "status"))
+    with get_db().cursor() as cur:
+        cur.execute("SELECT * FROM estoque ORDER BY id")
+        itens = cur.fetchall()
+    contagem = {"Crítico": 0, "Baixo": 0, "Normal": 0}
+    for it in itens:
+        it["status"], it["pct"] = classificar_estoque(it["quantidade"], it["ideal"])
+        contagem[it["status"]] += 1
+    categorias = sorted({i["categoria"] for i in itens if i["categoria"]} | set(CATEGORIAS))
+    mostrados = [i for i in itens
+                 if (not q or q.lower() in f"{i['item']} {i['fornecedor'] or ''}".lower())
+                 and (not cat or i["categoria"] == cat) and (not status or i["status"] == status)]
+    return render_template("materiais.html", itens=mostrados, total=len(itens), contagem=contagem,
+                           categorias=categorias, q=q, cat=cat, status=status,
+                           filtrado=bool(q or cat or status), hoje_mes=date.today().strftime("%Y-%m"))
