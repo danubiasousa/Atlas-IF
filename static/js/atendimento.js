@@ -98,8 +98,9 @@
     texto: v => v.replace(/[0-9]/g, ''),
     int: v => v.replace(/\D/g, ''),
     dec: v => v.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/g, '$1'),
-    pa: v => v,   
-     function formatarPA(v, digitando) {
+    pa: v => v,
+  };
+  function formatarPA(v, digitando) {
     let sis, dia;
     if (v.includes('/')) {
       const [a, b = ''] = v.split('/');
