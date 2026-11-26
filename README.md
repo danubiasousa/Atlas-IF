@@ -18,7 +18,9 @@ A ideia surgiu porque o setor anota quase tudo no papel: atendimentos, retornos,
 ## O que o sistema faz
 
 - Login para profissionais e alunos, com recuperação de senha por código enviado ao e-mail ou celular
-- Cadastro de alunos e de profissionais do setor
+- Cadastro, consulta, edição e exclusão de alunos. Aluno que já tem registros no setor é desativado em vez de excluído, para não perder o histórico
+- Edição e exclusão de atendimentos pelo histórico (só quem atendeu ou a supervisora)
+- Cadastro e edição dos profissionais do setor
 - O aluno marca atendimento escolhendo enfermagem ou odontologia, o profissional e o horário. Sábados, domingos, feriados e pontos facultativos do calendário acadêmico ficam bloqueados
 - Registro do atendimento em etapas: identificação, anamnese, sinais vitais, procedimentos e orientações
 - Os sinais vitais ficam verdes, amarelos ou vermelhos conforme o valor, e o IMC é calculado sozinho pela tabela de idade
@@ -48,9 +50,17 @@ O setor não emite atestado, porque no campus não tem médico. Quando precisa, 
 
 Os campos são conferidos na tela e também no servidor. Por exemplo: a pressão só aceita o formato 120/80, campos numéricos não aceitam letras e a anamnese não passa com campo vazio.
 
+## Segurança
+
+- Senhas guardadas criptografadas no banco
+- Todo formulário envia um código secreto da sessão (CSRF); sem ele, o envio é recusado
+- O texto mostrado nas telas é escapado pelo Flask, então o que alguém digitar não vira código na página
+- O controle de materiais usa ORM (SQLAlchemy, arquivo modelos.py); as outras consultas usam parâmetros, o que impede SQL injection
+- O código de recuperação de senha vale 1 minuto e bloqueia depois de 5 tentativas erradas
+
 ## Tecnologias
 
-Python, Flask, MySQL (pelo XAMPP), PyMySQL, HTML, CSS e JavaScript.
+Python, Flask, SQLAlchemy (ORM), MySQL (pelo XAMPP), PyMySQL, HTML, CSS e JavaScript.
 
 ## Como rodar
 
@@ -120,6 +130,7 @@ rotas_agendamento.py        agendamento e painel do profissional
 rotas_atendimento.py        atendimento, histórico e declaração
 rotas_odonto_materiais.py   odontograma e materiais
 seguranca.py                regras de senha e envio do código
+modelos.py                  ORM (tabela de estoque como classe Python)
 calendario.py               feriados e dias sem atendimento
 schema.sql                  tabelas do banco
 templates/                  páginas HTML
@@ -128,4 +139,4 @@ static/                     CSS, JavaScript e imagens
 
 ## Situação atual
 
-Formulários e banco de dados funcionando. Ainda falta fazer mais testes, ajustar o que aparecer e hospedar o sistema.
+Formulários, banco de dados, segurança e cadastrar/consultar/editar/excluir funcionando. Ainda falta levar o ORM para as outras tabelas, fazer mais testes com o setor e hospedar o sistema (Marco 6).
