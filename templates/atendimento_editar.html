@@ -1,0 +1,94 @@
+{% extends "base_app.html" %}
+{% set ativo = 'historico' %}
+{% block titulo %}Editar Atendimento · ATLAS IF{% endblock %}
+
+{% block conteudo %}
+<div class="estreito">
+  <div class="page-head">
+    <div><h1>Editar Atendimento</h1><p class="mono">{{ a.codigo }} · {{ a.data_hora|datahora }}</p></div>
+    <a class="btn-sec peq" href="{{ url_for('historico', q=a.aluno_nome) }}">← Voltar ao histórico</a>
+  </div>
+
+  <div class="card resp">
+    <span class="avatar">{{ a.aluno_nome|iniciais }}</span>
+    <div class="grow"><small>Aluno(a) · {{ a.matricula or 'sem matrícula' }} · {{ a.turma or 'sem turma' }}</small><strong>{{ a.aluno_nome }}</strong></div>
+    <span class="tag-sessao">{{ a.prof_nome or 'Profissional não informado' }}</span>
+  </div>
+
+  <form method="post" class="form-editar" action="{{ url_for('editar_atendimento', atendimento_id=a.id) }}" autocomplete="off">{{ csrf_input() }}
+    <section class="card passo">
+      <h3>Identificação</h3>
+      <div class="grid g2">
+        <div class="campo"><label for="tipo">Tipo</label>
+          <select id="tipo" name="tipo">
+            {% for t in tipos %}<option value="{{ t }}" {{ 'selected' if t == a.tipo }}>{{ t }}</option>{% endfor %}
+          </select></div>
+      </div>
+      <div class="campo"><label for="queixa">Queixa principal</label>
+        <textarea id="queixa" name="queixa" rows="3" required minlength="3" maxlength="160">{{ a.queixa }}</textarea></div>
+      <label class="aviso-aula">
+        <input type="checkbox" name="em_aula" value="1" {{ 'checked' if a.em_aula }}>
+        <span><b>Aluno(a) veio durante o horário de aula</b>
+        <small>Com essa opção marcada, a declaração de comparecimento fica disponível no histórico.</small></span>
+      </label>
+    </section>
+
+    {% if not odonto %}
+    <section class="card passo">
+      <h3>Anamnese</h3>
+      {% if enfermagem %}<p class="nota">Todos os campos são obrigatórios. Quando não houver, escreva “Nenhuma”.</p>{% endif %}
+      <div class="campo"><label for="historico">Histórico / Observações</label>
+        <textarea id="historico" name="historico" rows="3" maxlength="2000" {{ 'required' if enfermagem }}>{{ a.historico or '' }}</textarea></div>
+      <div class="grid g2">
+        {% for campo, rotulo, limite in [('alergias', 'Alergias conhecidas', 255), ('medicamentos_uso', 'Medicamentos em uso', 255),
+                                         ('doencas', 'Doenças preexistentes', 255), ('encaminhado_por', 'Encaminhado por', 120)] %}
+        <div class="campo"><label for="{{ campo }}">{{ rotulo }}</label>
+          <input type="text" id="{{ campo }}" name="{{ campo }}" value="{{ a[campo] or '' }}" maxlength="{{ limite }}" {{ 'required' if enfermagem }}></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card passo">
+      <h3>Sinais Vitais</h3>
+      <div class="grid g3">
+        {% for nome, rotulo, exemplo, unidade in sinais %}{% set tipo, mn, mx, obrig = regras_sinais[nome] %}
+        <div class="campo"><label for="{{ nome }}">{{ rotulo }}{% if not (obrig and enfermagem) %} <small>(opcional)</small>{% endif %}</label>
+          <div class="com-unidade"><input type="text" id="{{ nome }}" name="{{ nome }}" value="{{ a[nome] or '' }}" class="mono"
+            placeholder="{{ exemplo }}" {{ 'required' if obrig and enfermagem }} maxlength="{{ 7 if tipo == 'pa' else 5 }}"
+            inputmode="{{ 'decimal' if tipo == 'dec' else 'numeric' }}"><span>{{ unidade }}</span></div></div>
+        {% endfor %}
+        <div class="campo"><label>IMC</label>
+          <div class="com-unidade"><input type="text" class="mono" value="{{ a.imc or '' }}" readonly tabindex="-1" placeholder="peso ÷ altura²"><span>kg/m²</span></div>
+          <small class="msg-sinal">Recalculado ao salvar, se o peso ou a altura mudarem.</small></div>
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card passo">
+      <h3>Procedimentos e Orientações</h3>
+      <div class="campo"><label for="procedimentos">Procedimentos realizados</label>
+        <textarea id="procedimentos" name="procedimentos" rows="{{ 3 if odonto else 2 }}" maxlength="600">{{ a.procedimentos or '' }}</textarea></div>
+      {% if not odonto %}
+      <div class="campo"><label for="medicamentos_adm">Medicamentos administrados</label>
+        <textarea id="medicamentos_adm" name="medicamentos_adm" rows="2" maxlength="2000">{{ a.medicamentos_adm or '' }}</textarea></div>
+      {% endif %}
+      <div class="campo"><label for="orientacoes">Orientações ao aluno</label>
+        <textarea id="orientacoes" name="orientacoes" rows="3" maxlength="2000">{{ a.orientacoes or '' }}</textarea></div>
+      <div class="campo"><label for="observacoes">Observações do profissional</label>
+        <textarea id="observacoes" name="observacoes" rows="2" maxlength="2000">{{ a.observacoes or '' }}</textarea></div>
+    </section>
+
+    <div class="nav-passos">
+      <a class="btn-sec" href="{{ url_for('historico', q=a.aluno_nome) }}" style="display:inline-flex;align-items:center">Cancelar</a>
+      <button type="submit" class="btn-primario">✓ Salvar Alterações</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('excluir_atendimento', atendimento_id=a.id) }}" class="card passo zona-excluir"
+        onsubmit='return confirm({{ ("Excluir o atendimento " ~ a.codigo ~ " de " ~ a.aluno_nome ~ "? Essa ação não pode ser desfeita.")|tojson }})'>{{ csrf_input() }}
+    <h3>Excluir atendimento</h3>
+    <p class="nota">{% if odonto %}Apaga este atendimento e os procedimentos do odontograma registrados nele.{% else %}Apaga este atendimento.{% endif %} Essa ação não pode ser desfeita.</p>
+    <div><button type="submit" class="btn-excluir">Excluir atendimento</button></div>
+  </form>
+</div>
+{% endblock %}
