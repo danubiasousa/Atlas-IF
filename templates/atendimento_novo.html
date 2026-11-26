@@ -14,6 +14,10 @@
     <li data-step="{{ loop.index0 }}"><span class="num">{{ loop.index }}</span><span class="rot">{{ rotulo }}</span></li>
     {% endfor %}
   </ol>
+  {% if fora_expediente %}
+  <div class="flash erro">Agora são {{ hora }}, fora do expediente do setor ({{ texto_expediente }}).
+    Para registrar um atendimento já feito, ajuste a hora para quando o aluno foi atendido.</div>
+  {% endif %}
 
   <div class="card resp">
     <span class="avatar">{{ session['nome']|iniciais }}</span>
@@ -21,7 +25,7 @@
     <span class="tag-sessao">Sessão individual</span>
   </div>
 
-  <form id="form-atend" method="post" action="{{ url_for('novo_atendimento') }}" autocomplete="off">
+  <form id="form-atend" method="post" action="{{ url_for('novo_atendimento') }}" autocomplete="off">{{ csrf_input() }}
 
   
     <section class="card passo" data-step="0">
@@ -51,7 +55,8 @@
             <option value="M" {{ 'selected' if aluno_pre and aluno_pre.sexo == 'M' }}>Masculino</option>
           </select></div>
         <div class="campo"><label for="data">Data</label><input type="date" id="data" name="data" value="{{ data_iso }}" required></div>
-        <div class="campo"><label for="hora">Hora</label><input type="time" id="hora" name="hora" value="{{ hora }}" required></div>
+        <div class="campo"><label for="hora">Hora</label><input type="time" id="hora" name="hora" value="{{ hora }}" required
+          title="O setor atende {{ texto_expediente }}"></div>
       </div>
       <div class="campo"><label for="queixa">Queixa principal</label>
         <textarea id="queixa" name="queixa" rows="3" required minlength="3" maxlength="160" placeholder="Descreva a queixa principal do aluno..."></textarea></div>

@@ -1,4 +1,3 @@
-"""Agendamentos: portal do aluno, horários disponíveis, painel do profissional e resposta às solicitações (Geovane)."""
 from nucleo import *  
 
 
@@ -41,9 +40,7 @@ def painel():
     )
 
 
-
-
-JANELAS = {"Manhã": (time(8, 0), time(12, 30), "8h00 às 12h30"), "Tarde": (time(14, 0), time(18, 0), "14h00 às 18h00")}
+JANELAS = {"Manhã": (*EXPEDIENTE[0], "8h00 às 12h00"), "Tarde": (*EXPEDIENTE[1], "14h00 às 18h00")}
 DIA_TODO = ("Manhã", "Tarde")
 PORTAL = {
     "Enfermagem": {"descricao": "Mariana pela manhã e Stéfany à tarde", "compartilhado": True,
@@ -58,7 +55,6 @@ STATUS_SOLIC = {"pendente": ("Aguardando confirmação", "amarelo"), "aceita": (
 
 
 def horarios(turnos):
-    """Horários de 30 em 30 minutos dentro das janelas dos turnos do profissional."""
     saida = []
     for turno in turnos:
         ini, fim, _ = JANELAS[turno]
@@ -71,7 +67,7 @@ def horarios(turnos):
 
 def descricao_turnos(turnos):
     if tuple(turnos) == DIA_TODO:
-        return "Dia todo", "8h00 às 12h30 e 14h00 às 18h00"
+        return "Dia todo", "8h00 às 12h00 e 14h00 às 18h00"
     return " e ".join(turnos), " e ".join(JANELAS[t][2] for t in turnos)
 
 
@@ -101,7 +97,6 @@ def achar_profissional(grupos, prof_id):
 
 
 def horarios_do_dia(cur, g, prof, dia):
-    """Slots do profissional no dia: some os já passados (hoje) e, no odontológico, os já ocupados."""
     ocupados = set()
     if not g["compartilhado"]:
         cur.execute("SELECT horario FROM solicitacoes WHERE profissional_id = %s AND data_preferencial = %s "
@@ -133,7 +128,6 @@ def minhas_solicitacoes(cur, limite=20):
 @app.route("/aluno/api/horarios")
 @aluno_required
 def api_horarios():
-    """Disponibilidade de um profissional numa data, seguindo o calendário acadêmico."""
     try:
         dia = datetime.strptime(request.args.get("data", ""), "%Y-%m-%d").date()
     except ValueError:
@@ -239,5 +233,3 @@ def responder_solicitacao(sid):
                     "AND status = 'pendente'", (acao, just if acao == "recusada" else None, sid, session["user_id"]))
     flash("Solicitação confirmada." if acao == "aceita" else "Solicitação recusada; o aluno verá a justificativa.")
     return redirect(url_for("painel"))
-
-

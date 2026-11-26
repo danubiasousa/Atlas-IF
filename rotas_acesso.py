@@ -1,9 +1,6 @@
-"""Login, primeiro acesso, recuperação de senha, minha conta, cadastro de alunos e usuários (Danúbia)."""
 from nucleo import *  
 
 def buscar_usuario(texto):
-    """Aceita 'nome.sobrenome' (completa com @ifpi.edu.br), o e-mail completo, a matrícula do aluno
-    ou o e-mail que o aluno cadastrou no primeiro acesso."""
     texto = (texto or "").strip().lower().replace(" ", "")
     if not texto:
         return None
@@ -23,8 +20,6 @@ def buscar_usuario(texto):
 
 
 def senha_confere(user, senha):
-    """A senha pessoal diferencia maiúsculas de minúsculas. Exceção: a senha INICIAL padronizada
-    (setorsaude2026, a matrícula do aluno) aceita qualquer combinação: SetorSaude2026, 2025120iipi0009..."""
     if check_password_hash(user["senha_hash"], senha):
         return True
     if not user.get("trocar_senha"):
@@ -33,7 +28,6 @@ def senha_confere(user, senha):
 
 
 def email_em_uso(email, uid):
-    """O e-mail do aluno também serve de login, então não pode repetir o de outra pessoa."""
     with get_db().cursor() as cur:
         cur.execute("SELECT id FROM usuarios WHERE id <> %s AND (usuario = %s OR "
                     "(perfil = 'aluno' AND LOWER(email_recuperacao) = %s)) LIMIT 1", (uid, email, email))
@@ -47,7 +41,6 @@ def dados_aluno(user):
 
 
 def iniciar_sessao(user):
-    """Abre a sessão de fato (depois da senha e, se preciso, do primeiro acesso)."""
     session.clear()
     if user["perfil"] == "aluno":
         al = dados_aluno(user)
@@ -104,7 +97,6 @@ _SUGESTOES_IP = {}
 
 @app.route("/api/sugestoes-usuario")
 def sugestoes_usuario():
-    """Sugestões para o campo Usuário enquanto a pessoa digita: logins dos servidores e matrículas dos alunos."""
     q = (request.args.get("q") or "").strip().lower().replace(" ", "")
     if len(q) < 2 or len(q) > 120:
         return jsonify([])
@@ -144,7 +136,6 @@ def validar_nova_senha(user, nova, confirma, senha_antiga_hash=None):
 
 @app.route("/primeiro-acesso", methods=["GET", "POST"])
 def primeiro_acesso():
-    """Depois de entrar com a senha temporária: cria a senha definitiva e cadastra e-mail/telefone de recuperação."""
     user = usuario_por_id(session.get("pendente_uid")) if session.get("pendente_uid") else None
     if not user:
         session.pop("pendente_uid", None)
@@ -182,7 +173,6 @@ def primeiro_acesso():
 
     return render_template("primeiro_acesso.html", **ctx, email=user.get("email_recuperacao") or "",
                            telefone=user.get("telefone_recuperacao") or "")
-
 
 
 VALIDADE_CODIGO = timedelta(minutes=1)   
@@ -270,7 +260,6 @@ def enviar_codigo_rec():
 
 @app.route("/esqueci-senha/codigo", methods=["GET", "POST"])
 def codigo_rec():
-    """Etapa 3: só verifica o código."""
     user = usuario_por_id(session.get("rec_uid")) if session.get("rec_uid") else None
     if not user or not session.get("rec_canal"):
         return redirect(url_for("esqueci_senha"))
@@ -306,7 +295,6 @@ def codigo_rec():
 
 @app.route("/esqueci-senha/nova-senha", methods=["GET", "POST"])
 def nova_senha_rec():
-    """Etapa 4: só depois do código confirmado."""
     user = usuario_por_id(session.get("rec_uid")) if session.get("rec_uid") else None
     try:
         ok_ate = datetime.fromisoformat(session.get("rec_ok_ate", ""))
@@ -333,7 +321,6 @@ def nova_senha_rec():
         return redirect(url_for("login"))
     return render_template("recuperar.html", etapa="senha", versao=VERSAO, user=user, regras=REGRAS_SENHA,
                            especiais=ESPECIAIS)
-
 
 
 @app.route("/conta", methods=["GET", "POST"])
@@ -373,7 +360,6 @@ def minha_conta():
     return render_template("minha_conta.html", ativo="conta", user=user, regras=REGRAS_SENHA, especiais=ESPECIAIS)
 
 
-
 @app.route("/alunos")
 @profissional_required
 def alunos():
@@ -397,42 +383,131 @@ def alunos():
                            filtrado=bool(where))
 
 
-@app.route("/alunos/novo", methods=["POST"])
-@profissional_required
-def novo_aluno():
-    f = request.form
-    nome = f.get("nome", "").strip()
+RE_MATRICULA = re.compile(r"[A-Z0-9]{6,20}")
+
+
+def ler_aluno(f):
+    nome = " ".join(f.get("nome", "").split())
     matricula = f.get("matricula", "").strip().upper().replace(" ", "")
-    if not nome or not matricula:
-        flash("Informe o nome completo e a matrícula do aluno.", "erro")
-        return redirect(url_for("alunos"))
+    if not 3 <= len(nome) <= 120:
+        return None, "Informe o nome completo do aluno (de 3 a 120 caracteres)."
+    if not RE_MATRICULA.fullmatch(matricula):
+        return None, "Matrícula inválida: use só letras e números, de 6 a 20 caracteres (ex.: 2025120IIPI0009)."
     try:
         nasc = datetime.strptime(f.get("data_nascimento", ""), "%Y-%m-%d").date()
     except ValueError:
         nasc = None
     if not nasc or not (date(1950, 1, 1) <= nasc <= agora().date()):
-        flash("Informe a data de nascimento do aluno: ela é a senha inicial dele.", "erro")
+        return None, "Informe uma data de nascimento válida (ela é a senha inicial do aluno)."
+    sexo = f.get("sexo")
+    if sexo not in ("F", "M"):
+        return None, "Informe o sexo do aluno."
+    return {"nome": nome, "matricula": matricula, "turma": f.get("turma", "").strip()[:40] or None,
+            "curso": f.get("curso", "").strip()[:120] or None, "campus": f.get("campus", "").strip()[:60] or "Paulistana",
+            "data_nascimento": nasc, "sexo": sexo}, None
+
+
+@app.route("/alunos/novo", methods=["POST"])
+@profissional_required
+def novo_aluno():
+    d, erro = ler_aluno(request.form)
+    if erro:
+        flash(erro, "erro")
         return redirect(url_for("alunos"))
     try:
         with get_db().cursor() as cur:
             cur.execute("INSERT INTO alunos (nome, matricula, turma, curso, campus, data_nascimento, sexo) "
                         "VALUES (%s,%s,%s,%s,%s,%s,%s)",
-                        (nome, matricula, f.get("turma", "").strip() or None, f.get("curso", "").strip() or None,
-                         f.get("campus", "").strip() or "Paulistana", nasc,
-                         f.get("sexo") if f.get("sexo") in ("F", "M") else None))
-            senha = criar_login_aluno(cur, cur.lastrowid, matricula, nome, nasc)
+                        (d["nome"], d["matricula"], d["turma"], d["curso"], d["campus"], d["data_nascimento"], d["sexo"]))
+            senha = criar_login_aluno(cur, cur.lastrowid, d["matricula"], d["nome"], d["data_nascimento"])
     except pymysql.err.IntegrityError:
-        flash(f"Já existe um aluno com a matrícula {matricula}.", "erro")
+        flash(f"Já existe um aluno com a matrícula {d['matricula']}.", "erro")
         return redirect(url_for("alunos"))
-    flash(f"Aluno {nome} cadastrado. Login: {matricula} · senha inicial: {senha} (data de nascimento). "
+    flash(f"Aluno {d['nome']} cadastrado. Login: {d['matricula']} · senha inicial: {senha} (data de nascimento). "
           "No primeiro acesso o aluno cria a própria senha.", "ok")
+    return redirect(url_for("alunos"))
+
+
+@app.route("/alunos/<int:aluno_id>/editar", methods=["POST"])
+@profissional_required
+def editar_aluno(aluno_id):
+    d, erro = ler_aluno(request.form)
+    if erro:
+        flash(erro, "erro")
+        return redirect(url_for("alunos"))
+    ativo = 0 if request.form.get("ativo") == "0" else 1
+    con = get_db()
+    with con.cursor() as cur:
+        cur.execute("SELECT * FROM alunos WHERE id = %s", (aluno_id,))
+        antigo = cur.fetchone()
+        if not antigo:
+            flash("Aluno não encontrado.", "erro")
+            return redirect(url_for("alunos"))
+        con.begin()
+        try:
+            cur.execute("UPDATE alunos SET nome=%s, matricula=%s, turma=%s, curso=%s, campus=%s, data_nascimento=%s, "
+                        "sexo=%s, ativo=%s WHERE id=%s",
+                        (d["nome"], d["matricula"], d["turma"], d["curso"], d["campus"], d["data_nascimento"],
+                         d["sexo"], ativo, aluno_id))
+            cur.execute("UPDATE atendimentos SET aluno_nome=%s, matricula=%s WHERE aluno_id=%s",
+                        (d["nome"], d["matricula"], aluno_id))
+            cur.execute("UPDATE solicitacoes SET aluno_nome=%s WHERE aluno_id=%s", (d["nome"], aluno_id))
+            cur.execute("UPDATE procedimentos_odonto SET aluno_nome=%s WHERE aluno_id=%s", (d["nome"], aluno_id))
+            cur.execute("UPDATE retornos SET aluno_nome=%s WHERE aluno_nome=%s", (d["nome"], antigo["nome"]))
+            if antigo["usuario_id"]:
+                cur.execute("UPDATE usuarios SET usuario=%s, nome=%s, ativo=%s WHERE id=%s AND perfil='aluno'",
+                            (d["matricula"].lower(), d["nome"], ativo, antigo["usuario_id"]))
+            con.commit()
+        except pymysql.err.IntegrityError:
+            con.rollback()
+            flash(f"Já existe um aluno ou um login com a matrícula {d['matricula']}.", "erro")
+            return redirect(url_for("alunos"))
+    flash(f"Cadastro de {d['nome']} atualizado.", "ok")
+    return redirect(url_for("alunos"))
+
+
+@app.route("/alunos/<int:aluno_id>/excluir", methods=["POST"])
+@profissional_required
+def excluir_aluno(aluno_id):
+    con = get_db()
+    with con.cursor() as cur:
+        cur.execute("SELECT id, nome, usuario_id FROM alunos WHERE id = %s", (aluno_id,))
+        al = cur.fetchone()
+        if not al:
+            flash("Aluno não encontrado.", "erro")
+            return redirect(url_for("alunos"))
+        cur.execute("SELECT (SELECT COUNT(*) FROM atendimentos WHERE aluno_id=%s) "
+                    "+ (SELECT COUNT(*) FROM solicitacoes WHERE aluno_id=%s) "
+                    "+ (SELECT COUNT(*) FROM procedimentos_odonto WHERE aluno_id=%s) "
+                    "+ (SELECT COUNT(*) FROM retornos WHERE aluno_nome=%s) AS n",
+                    (aluno_id, aluno_id, aluno_id, al["nome"]))
+        ligados = cur.fetchone()["n"]
+        if ligados:
+            cur.execute("UPDATE alunos SET ativo = 0 WHERE id = %s", (aluno_id,))
+            if al["usuario_id"]:
+                cur.execute("UPDATE usuarios SET ativo = 0 WHERE id = %s AND perfil = 'aluno'", (al["usuario_id"],))
+            flash(f"{al['nome']} tem {ligados} registro(s) no setor (atendimentos, agendamentos ou odontograma). "
+                  "Para não apagar o histórico, o cadastro foi desativado em vez de excluído. "
+                  "Para reativar, use Editar.", "erro")
+            return redirect(url_for("alunos"))
+        con.begin()
+        try:
+            cur.execute("DELETE FROM alunos WHERE id = %s", (aluno_id,))
+            if al["usuario_id"]:
+                cur.execute("DELETE FROM codigos_recuperacao WHERE usuario_id = %s", (al["usuario_id"],))
+                cur.execute("DELETE FROM usuarios WHERE id = %s AND perfil = 'aluno'", (al["usuario_id"],))
+            con.commit()
+        except pymysql.err.Error:
+            con.rollback()
+            flash("Não foi possível excluir o aluno agora.", "erro")
+            return redirect(url_for("alunos"))
+    flash(f"Aluno {al['nome']} excluído.", "ok")
     return redirect(url_for("alunos"))
 
 
 @app.route("/alunos/<int:aluno_id>/nova-senha", methods=["POST"])
 @profissional_required
 def nova_senha_aluno(aluno_id):
-    """Para o aluno que perdeu a senha e não tem contato de recuperação cadastrado."""
     with get_db().cursor() as cur:
         cur.execute("SELECT nome, matricula, usuario_id, data_nascimento FROM alunos WHERE id = %s", (aluno_id,))
         al = cur.fetchone()
@@ -448,8 +523,6 @@ def nova_senha_aluno(aluno_id):
     flash(f"Senha de {al['nome']} voltou para a inicial: {senha} ({origem}). Login: {al['matricula']}. "
           "No próximo acesso o aluno cria uma senha nova.", "ok")
     return redirect(url_for("alunos"))
-
-
 
 
 NIVEIS = ["Operador", "Supervisor"]
@@ -566,4 +639,3 @@ def status_usuario(uid):
 def sair():
     session.clear()
     return redirect(url_for("login"))
-

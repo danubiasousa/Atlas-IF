@@ -36,8 +36,13 @@
         <td class="acoes">
           <a class="btn-sec peq" href="{{ url_for('historico', q=a.nome) }}">Histórico</a>
           <a class="btn-primario peq" href="{{ url_for('novo_atendimento', aluno=a.id) }}">Atender</a>
+          <button type="button" class="btn-sec peq editar"
+            data-id="{{ a.id }}" data-nome="{{ a.nome }}" data-matricula="{{ a.matricula }}" data-turma="{{ a.turma or '' }}"
+            data-curso="{{ a.curso or '' }}" data-campus="{{ a.campus or '' }}" data-sexo="{{ a.sexo or '' }}"
+            data-data_nascimento="{{ a.data_nascimento.isoformat() if a.data_nascimento else '' }}"
+            data-ativo="{{ 1 if a.ativo else 0 }}" data-total="{{ a.total }}">Editar</button>
           <form method="post" action="{{ url_for('nova_senha_aluno', aluno_id=a.id) }}" style="display:inline"
-                onsubmit='return confirm({{ ("Voltar a senha de " ~ a.nome ~ " para a inicial (data de nascimento)?")|tojson }})'>
+                onsubmit='return confirm({{ ("Voltar a senha de " ~ a.nome ~ " para a inicial (data de nascimento)?")|tojson }})'>{{ csrf_input() }}
             <button type="submit" class="btn-sec peq" title="Voltar para a senha inicial (data de nascimento)">Senha</button></form>
         </td>
       </tr>
@@ -49,28 +54,65 @@
 </section>
 
 <dialog id="modal-aluno" class="modal">
-  <form method="post" action="{{ url_for('novo_aluno') }}" autocomplete="off">
-    <header><h3>Cadastrar Novo Aluno</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
+  <form method="post" id="form-aluno" action="{{ url_for('novo_aluno') }}" autocomplete="off">{{ csrf_input() }}
+    <header><h3 id="modal-aluno-titulo">Cadastrar Novo Aluno</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
     <div class="modal-corpo">
-      <div class="campo"><label for="m-nome">Nome completo</label><input type="text" id="m-nome" name="nome" required placeholder="Nome do aluno"></div>
+      <div class="campo"><label for="m-nome">Nome completo</label><input type="text" id="m-nome" name="nome" required minlength="3" maxlength="120" placeholder="Nome do aluno"></div>
       <div class="grid g2">
-        <div class="campo"><label for="m-mat">Matrícula</label><input type="text" id="m-mat" name="matricula" class="mono" required placeholder="2025120IIPI0000"></div>
+        <div class="campo"><label for="m-mat">Matrícula</label><input type="text" id="m-mat" name="matricula" class="mono" required pattern="[A-Za-z0-9]{6,20}" maxlength="20" title="Só letras e números, de 6 a 20 caracteres (ex.: 2025120IIPI0009)" placeholder="2025120IIPI0000"></div>
         <div class="campo"><label for="m-nasc">Data de nascimento</label><input type="date" id="m-nasc" name="data_nascimento" required min="1950-01-01"></div>
       </div>
-      <div class="grid g2"><div class="campo"><label for="m-turma">Turma</label><input type="text" id="m-turma" name="turma" placeholder="2° INFO"></div>
+      <div class="grid g2"><div class="campo"><label for="m-turma">Turma</label><input type="text" id="m-turma" name="turma" maxlength="40" placeholder="2° INFO"></div>
         <div class="campo"><label for="m-sexo">Sexo</label><select id="m-sexo" name="sexo" required>
           <option value="">Selecione</option><option value="F">Feminino</option><option value="M">Masculino</option></select></div></div>
-      <div class="campo"><label for="m-curso">Curso</label><input type="text" id="m-curso" name="curso" placeholder="Técnico em Informática para Internet"></div>
-      <div class="campo"><label for="m-campus">Campus</label><input type="text" id="m-campus" name="campus" placeholder="Paulistana"></div>
+      <div class="campo"><label for="m-curso">Curso</label><input type="text" id="m-curso" name="curso" maxlength="120" placeholder="Técnico em Informática para Internet"></div>
+      <div class="campo"><label for="m-campus">Campus</label><input type="text" id="m-campus" name="campus" maxlength="60" placeholder="Paulistana"></div>
+      <div class="campo" id="campo-ativo" hidden><label for="m-ativo">Situação</label><select id="m-ativo" name="ativo">
+        <option value="1">Ativo</option><option value="0">Inativo (não consegue entrar no sistema)</option></select></div>
     </div>
-    <footer><button type="button" class="btn-sec fechar">Cancelar</button><button type="submit" class="btn-primario">Salvar Cadastro</button></footer>
+    <footer>
+      <button type="submit" class="btn-excluir" id="excluir-aluno" formnovalidate hidden>Excluir</button>
+      <span class="esp"></span>
+      <button type="button" class="btn-sec fechar">Cancelar</button>
+      <button type="submit" class="btn-primario" id="salvar-aluno">Salvar Cadastro</button>
+    </footer>
   </form>
 </dialog>
 
 <script>
   (() => {
-    const m = document.getElementById('modal-aluno');
-    document.getElementById('abrir-modal').onclick = () => m.showModal();
+    const m = document.getElementById('modal-aluno'), f = document.getElementById('form-aluno');
+    const urlNovo = "{{ url_for('novo_aluno') }}";
+    const urlEditar = "{{ url_for('editar_aluno', aluno_id=0) }}";
+    const urlExcluir = "{{ url_for('excluir_aluno', aluno_id=0) }}";
+    const campos = {nome: 'm-nome', matricula: 'm-mat', data_nascimento: 'm-nasc', turma: 'm-turma', sexo: 'm-sexo',
+                    curso: 'm-curso', campus: 'm-campus', ativo: 'm-ativo'};
+    const btnExcluir = document.getElementById('excluir-aluno');
+    let atual = null;
+
+    function abrir(d) {
+      f.reset();
+      atual = d;
+      const edit = !!d;
+      f.action = edit ? urlEditar.replace('/0/', `/${d.id}/`) : urlNovo;
+      document.getElementById('modal-aluno-titulo').textContent = edit ? 'Editar Aluno' : 'Cadastrar Novo Aluno';
+      document.getElementById('salvar-aluno').textContent = edit ? 'Salvar Alterações' : 'Salvar Cadastro';
+      document.getElementById('campo-ativo').hidden = !edit;
+      btnExcluir.hidden = !edit;
+      if (edit) {
+        btnExcluir.formAction = urlExcluir.replace('/0/', `/${d.id}/`);
+        for (const [k, id] of Object.entries(campos)) document.getElementById(id).value = d[k] ?? '';
+      }
+      m.showModal();
+    }
+    document.getElementById('abrir-modal').onclick = () => abrir(null);
+    document.querySelectorAll('.editar').forEach(b => (b.onclick = () => abrir({...b.dataset})));
+    btnExcluir.onclick = e => {
+      const aviso = Number(atual.total) > 0
+        ? `${atual.nome} tem atendimentos registrados. O cadastro será DESATIVADO (não excluído) para manter o histórico. Continuar?`
+        : `Excluir o cadastro e o login de ${atual.nome}? Essa ação não pode ser desfeita.`;
+      if (!confirm(aviso)) e.preventDefault();
+    };
     m.querySelectorAll('.fechar').forEach(b => (b.onclick = () => m.close()));
     m.addEventListener('click', e => { if (e.target === m) m.close(); });
   })();
