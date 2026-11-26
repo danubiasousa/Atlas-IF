@@ -2,6 +2,7 @@ import hmac
 import json
 import re
 import os
+import mimetypes
 import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -92,6 +93,9 @@ def chave_secreta():
     arquivo.write_text(chave, encoding="utf-8")
     return chave
 
+
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("application/javascript", ".js")
 
 app = Flask(__name__)
 app.secret_key = chave_secreta()
