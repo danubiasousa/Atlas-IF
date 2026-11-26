@@ -6,6 +6,21 @@ O nome vem de Acompanhamento Tecnológico de Logística e Atendimentos à Saúde
 
 A ideia surgiu porque o setor anota quase tudo no papel: atendimentos, retornos, estoque de material. Com o sistema, a enfermagem e a odontologia registram os atendimentos e consultam o histórico de cada aluno, e o aluno consegue marcar horário pelo celular sem precisar ir até o setor.
 
+## Acesso rápido (usuários e senhas)
+
+| Perfil | Usuário | Senha |
+|---|---|---|
+| Enfermeira supervisora | mariana.moura | setorsaude2026 |
+| Técnica em Enfermagem | stefany.moreira | setorsaude2026 |
+| Dentista | debora.castro | setorsaude2026 |
+| Técnico em Saúde Bucal | leonardo.rocha | setorsaude2026 |
+| Aluna Danúbia | 2025120IIPI0009 | 19042009 |
+| Aluno Geovane | 2025120IIPI0012 | 28012010 |
+| Aluna Maria Aparecida | 2025120IIPI0032 | 21102009 |
+| Aluna Sthefany | 2025120IIPI0036 | 20032010 |
+
+No login dos servidores, basta digitar o nome.sobrenome que o sistema completa com @ifpi.edu.br. Maiúsculas e minúsculas não fazem diferença no usuário. No primeiro acesso o sistema pede para trocar a senha (detalhes mais abaixo, em "Usuários para teste" e "Primeiro acesso").
+
 ## Equipe
 
 | Integrante | Arquivos que ficaram com cada um |
