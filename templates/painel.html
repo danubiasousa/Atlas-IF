@@ -22,7 +22,7 @@
       <div class="grow"><strong>{{ s.aluno_nome }}</strong>
         <small>{% if s.tipo %}{{ s.tipo }}{% endif %}{% if s.data_preferencial %} · {{ s.data_preferencial|dataBR }} às {{ s.horario|horario }}{% endif %}</small>
         <small>{{ s.motivo }}{% if s.em_aula %} · <b>em horário de aula</b>{% endif %}</small></div>
-      <form class="resp-acoes" method="post" action="{{ url_for('responder_solicitacao', sid=s.id) }}">
+      <form class="resp-acoes" method="post" action="{{ url_for('responder_solicitacao', sid=s.id) }}">{{ csrf_input() }}
         <input type="hidden" name="justificativa">
         <button type="submit" name="acao" value="recusada" class="btn-sec peq"
           onclick="const j = prompt('Justificativa para o aluno (opcional):'); if (j === null) return false; this.form.justificativa.value = j;">Recusar</button>

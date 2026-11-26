@@ -1,11 +1,3 @@
-"""ATLAS IF – arquivo principal. Rode com:  python app.py
-
-Junta o núcleo com as rotas de cada parte do sistema:
-  rotas_acesso.py            – login, senhas, alunos e usuários   (Danúbia)
-  rotas_agendamento.py       – agendamentos e painel              (Geovane)
-  rotas_atendimento.py       – atendimentos, histórico, declaração (Maria Aparecida)
-  rotas_odonto_materiais.py  – odontograma e materiais            (Sthefany)
-"""
 import importlib
 import os
 
@@ -21,9 +13,7 @@ for _m in MODULOS:
         print(f"[ATLAS IF] Aviso: {_m}.py ainda não foi adicionado ao projeto.")
 
 
-
 def ip_da_rede():
-    """IP deste computador na rede Wi-Fi (para abrir o sistema pelo celular)."""
     import socket
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:

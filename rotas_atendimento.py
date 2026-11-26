@@ -1,4 +1,3 @@
-"""Registro de atendimentos (anamnese, sinais vitais), histórico e declaração de comparecimento (Maria Aparecida)."""
 from nucleo import * 
 from rotas_odonto_materiais import (ODONTO_CARGOS, DENTES, FACES, SITUACOES, PROC_ODONTO, BOCA_TODA,  
                                     TODOS_DENTES, nome_dente, usa_odonto, ler_odonto)
@@ -16,10 +15,33 @@ REGRAS_SINAIS = {"pressao": ("pa", None, None, True), "fc": ("int", 20, 250, Tru
                  "temperatura": ("dec", 30, 45, True), "saturacao": ("int", 40, 100, True),
                  "peso": ("dec", 2, 350, True), "altura": ("int", 50, 230, True), "glicemia": ("int", 10, 999, False)}
 ANAMNESE = ["historico", "alergias", "medicamentos_uso", "doencas", "encaminhado_por"]
+TEXTOS = ["historico", "alergias", "medicamentos_uso", "doencas", "encaminhado_por", "procedimentos",
+          "medicamentos_adm", "orientacoes", "observacoes"]
+LIMITES = {"queixa": 160, "alergias": 255, "medicamentos_uso": 255, "doencas": 255, "encaminhado_por": 120,
+           "procedimentos": 600, "historico": 2000, "medicamentos_adm": 2000, "orientacoes": 2000, "observacoes": 2000}
+ROTULOS = {"queixa": "Queixa principal", "historico": "Histórico", "alergias": "Alergias",
+           "medicamentos_uso": "Medicamentos em uso", "doencas": "Doenças preexistentes",
+           "encaminhado_por": "Encaminhado por", "procedimentos": "Procedimentos",
+           "medicamentos_adm": "Medicamentos administrados", "orientacoes": "Orientações", "observacoes": "Observações"}
+TIPOS = {"Atendimento": "Concluído", "Retorno": "Retorno", "Encaminhamento": "Encaminhado"}
+
+
+def erro_tamanho(dados):
+    for campo, limite in LIMITES.items():
+        if dados.get(campo) and len(dados[campo]) > limite:
+            return f"{ROTULOS[campo]}: no máximo {limite} caracteres."
+    return None
+
+
+def imc_simples(peso, altura):
+    try:
+        p, a = float(str(peso).replace(",", ".")), float(str(altura).replace(",", ".")) / 100
+    except (TypeError, ValueError):
+        return None
+    return f"{p / (a * a):.1f}".replace(".", ",") if p > 0 and a > 0.4 else None
 
 
 def erro_sinal(campo, valor):
-    """Confere o formato e a faixa de um sinal vital. Devolve a mensagem de erro ou None."""
     tipo, mn, mx, obrig = REGRAS_SINAIS[campo]
     rotulo = next(r for n, r, *_ in SINAIS if n == campo)
     if not valor:
@@ -34,7 +56,6 @@ def erro_sinal(campo, valor):
     if not (mn <= float(valor.replace(",", ".")) <= mx):
         return f"{rotulo} deve ficar entre {mn} e {mx}."
     return None
-
 
 
 @app.route("/api/alunos")
@@ -62,10 +83,17 @@ def novo_atendimento():
         if not nome or not queixa:
             flash("Informe o nome do aluno e a queixa principal.", "erro")
             return redirect(url_for("novo_atendimento"))
+        if len(nome) > 120:
+            flash("Nome do aluno: no máximo 120 caracteres.", "erro")
+            return redirect(url_for("novo_atendimento"))
         try:
             dh = datetime.strptime(f"{f.get('data')} {f.get('hora')}", "%Y-%m-%d %H:%M")
         except ValueError:
-            dh = agora()
+            flash("Informe a data e a hora do atendimento.", "erro")
+            return redirect(url_for("novo_atendimento"))
+        if not no_expediente(dh.time()):
+            flash(f"Horário {dh:%H:%M} fora do expediente: o setor só atende {TEXTO_EXPEDIENTE}.", "erro")
+            return redirect(url_for("novo_atendimento"))
         enc, ret = int(bool(f.get("enc_externo"))), int(bool(f.get("agendar_retorno")))
         tipo, status = (("Encaminhamento", "Encaminhado") if enc else
                         ("Retorno", "Retorno") if ret else ("Atendimento", "Concluído"))
@@ -80,6 +108,11 @@ def novo_atendimento():
                   "temperatura", "saturacao", "peso", "altura", "glicemia", "imc", "medicamentos_adm", "orientacoes",
                   "observacoes"]:
             dados[c] = f.get(c, "").strip() or None
+        dados["imc"] = (dados["imc"] or "")[:60] or None
+        erro = erro_tamanho(dados)
+        if erro:
+            flash(erro, "erro")
+            return redirect(url_for("novo_atendimento"))
         try:
             nasc = datetime.strptime(f.get("data_nascimento", ""), "%Y-%m-%d").date()
         except ValueError:
@@ -101,7 +134,7 @@ def novo_atendimento():
             for c in ("temperatura", "peso"):
                 if dados[c]:
                     dados[c] = dados[c].replace(",", ".")
-        dados["finalizado_em"] = agora()
+        dados["finalizado_em"] = horario_final(dh, agora())
         registros = ler_odonto(f.get("odonto"), dh.date()) if usa_odonto() else []
         if registros and not dados["procedimentos"]:
             dados["procedimentos"] = "; ".join(f"{nome_dente(r['dente'])} – {r['procedimento']}" for r in registros)[:600]
@@ -160,13 +193,13 @@ def novo_atendimento():
                 ["Identificação", "Anamnese", "Sinais Vitais", "Procedimentos", "Orientações"]),
         codigo=f"ATD-{d.year}-{1000 + proximo}", data_iso=d.strftime("%Y-%m-%d"), hora=d.strftime("%H:%M"),
         data_extenso=f"{d.day} de {MESES[d.month - 1]} de {d.year} {d:%H:%M}",
+        fora_expediente=not no_expediente(d.time()),
     )
 
 
 @app.route("/atendimentos/<int:atendimento_id>/declaracao")
 @profissional_required
 def declaracao(atendimento_id):
-    """Declaração de comparecimento no modelo do IFPI, preenchida com o aluno e o profissional do atendimento."""
     with get_db().cursor() as cur:
         cur.execute("SELECT a.*, u.nome AS prof_nome, u.cargo AS prof_cargo, u.campus AS prof_campus "
                     "FROM atendimentos a LEFT JOIN usuarios u ON u.id = a.profissional_id WHERE a.id = %s",
@@ -175,9 +208,7 @@ def declaracao(atendimento_id):
     if not a:
         flash("Atendimento não encontrado.", "erro")
         return redirect(url_for("historico"))
-    fim = a.get("finalizado_em") or a["data_hora"]
-    if fim.date() != a["data_hora"].date() or fim < a["data_hora"]:
-        fim = a["data_hora"]
+    fim = horario_final(a["data_hora"], a.get("finalizado_em"))
     return render_template("declaracao.html", a=a, inicio=a["data_hora"].strftime("%H:%M"), fim=fim.strftime("%H:%M"),
                            campus=a.get("prof_campus") or "Paulistana", novo=request.args.get("novo"))
 
@@ -199,6 +230,97 @@ def historico():
     with get_db().cursor() as cur:
         cur.execute(sql, args)
         registros = cur.fetchall()
-    return render_template("historico.html", registros=registros, q=q, tipo=tipo, data=data)
+    for r in registros:
+        r["odonto"] = r["prof_cargo"] in ODONTO_CARGOS
+    return render_template("historico.html", registros=registros, q=q, tipo=tipo, data=data, usa_odonto=usa_odonto())
 
 
+def pode_alterar(a):
+    return a["profissional_id"] == session.get("user_id") or session.get("nivel") == "Supervisor"
+
+
+def buscar_atendimento(cur, atendimento_id):
+    cur.execute("SELECT a.*, u.nome AS prof_nome, u.cargo AS prof_cargo FROM atendimentos a "
+                "LEFT JOIN usuarios u ON u.id = a.profissional_id WHERE a.id = %s", (atendimento_id,))
+    return cur.fetchone()
+
+
+@app.route("/atendimentos/<int:atendimento_id>/editar", methods=["GET", "POST"])
+@profissional_required
+def editar_atendimento(atendimento_id):
+    with get_db().cursor() as cur:
+        a = buscar_atendimento(cur, atendimento_id)
+    if not a:
+        flash("Atendimento não encontrado.", "erro")
+        return redirect(url_for("historico"))
+    if not pode_alterar(a):
+        flash("Só o profissional que fez o atendimento ou um supervisor pode editá-lo.", "erro")
+        return redirect(url_for("historico", q=a["aluno_nome"]))
+    odonto = a["prof_cargo"] in ODONTO_CARGOS
+    enfermagem = not odonto and bool(a["pressao"])
+    campos = (["procedimentos", "orientacoes", "observacoes"] if odonto
+              else TEXTOS + [s[0] for s in SINAIS])
+    tela = dict(sinais=SINAIS, regras_sinais=REGRAS_SINAIS, tipos=TIPOS, enfermagem=enfermagem, odonto=odonto)
+
+    if request.method == "POST":
+        f = request.form
+        dados = {"queixa": f.get("queixa", "").strip(), "em_aula": int(bool(f.get("em_aula")))}
+        tipo = f.get("tipo") if f.get("tipo") in TIPOS else a["tipo"]
+        dados.update(tipo=tipo, status=TIPOS.get(tipo, a["status"]),
+                     enc_externo=int(tipo == "Encaminhamento"), agendar_retorno=int(tipo == "Retorno"))
+        for c in campos:
+            dados[c] = f.get(c, "").strip() or None
+
+        erro = None
+        if not dados["queixa"]:
+            erro = "Informe a queixa principal."
+        if not erro:
+            erro = erro_tamanho(dados)
+        if not erro and enfermagem and any(not dados[c] for c in ANAMNESE):
+            erro = "Preencha todos os campos da anamnese (use “Nenhuma” quando não houver)."
+        if not erro and not odonto:
+            erro = next((e for c in REGRAS_SINAIS
+                         if (enfermagem or dados[c]) and (e := erro_sinal(c, dados[c] or ""))), None)
+        if erro:
+            flash(erro, "erro")
+            return render_template("atendimento_editar.html", a={**a, **dados}, **tela)
+
+        if not odonto:
+            for c in ("temperatura", "peso"):
+                if dados[c]:
+                    dados[c] = dados[c].replace(",", ".")
+            if (dados["peso"], dados["altura"]) != (a["peso"], a["altura"]):
+                txt = imc_simples(dados["peso"], dados["altura"])
+                dados["imc"] = f"{txt} – recalculado na edição" if txt else None
+        with get_db().cursor() as cur:
+            cur.execute(f"UPDATE atendimentos SET {', '.join(c + '=%s' for c in dados)} WHERE id=%s",
+                        [*dados.values(), atendimento_id])
+        flash(f"Atendimento {a['codigo']} atualizado.", "ok")
+        return redirect(url_for("historico", q=a["aluno_nome"]))
+
+    return render_template("atendimento_editar.html", a=a, **tela)
+
+
+@app.route("/atendimentos/<int:atendimento_id>/excluir", methods=["POST"])
+@profissional_required
+def excluir_atendimento(atendimento_id):
+    con = get_db()
+    with con.cursor() as cur:
+        a = buscar_atendimento(cur, atendimento_id)
+        if not a:
+            flash("Atendimento não encontrado.", "erro")
+            return redirect(url_for("historico"))
+        if not pode_alterar(a):
+            flash("Só o profissional que fez o atendimento ou um supervisor pode excluí-lo.", "erro")
+            return redirect(url_for("historico", q=a["aluno_nome"]))
+        con.begin()
+        try:
+            cur.execute("DELETE FROM procedimentos_odonto WHERE atendimento_id = %s", (atendimento_id,))
+            cur.execute("DELETE FROM atendimentos WHERE id = %s", (atendimento_id,))
+            con.commit()
+        except pymysql.err.Error:
+            con.rollback()
+            flash("Não foi possível excluir o atendimento agora.", "erro")
+            return redirect(url_for("historico"))
+    flash(f"Atendimento {a['codigo']} de {a['aluno_nome']} excluído.", "ok")
+    return redirect(url_for("historico"))

@@ -59,7 +59,7 @@
 </section>
 
 <dialog id="modal-item" class="modal">
-  <form method="post" id="form-item" action="{{ url_for('novo_material') }}" autocomplete="off">
+  <form method="post" id="form-item" action="{{ url_for('novo_material') }}" autocomplete="off">{{ csrf_input() }}
     <header><h3 id="modal-item-titulo">Cadastrar Novo Item</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
     <div class="modal-corpo">
       <div class="campo"><label for="i-item">Nome do item</label><input type="text" id="i-item" name="item" required maxlength="80" placeholder="Ex.: Dipirona 500mg"></div>

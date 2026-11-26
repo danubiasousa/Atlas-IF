@@ -1,13 +1,3 @@
-"""Calendário acadêmico 2026 – IFPI Campus Paulistana (cursos técnicos integrados).
-
-Dias em que o Setor de Saúde NÃO aceita agendamento:
-  * sábados e domingos;
-  * feriados e pontos facultativos do calendário;
-  * recesso natalino.
-
-Para o próximo ano, basta acrescentar as datas em DIAS_SEM_ATENDIMENTO
-e ajustar ULTIMO_DIA_CALENDARIO.
-"""
 from datetime import date, timedelta
 
 DIAS_SEM_ATENDIMENTO = {
@@ -41,7 +31,6 @@ ULTIMO_DIA_CALENDARIO = date(2027, 1, 31)
 
 
 def motivo_bloqueio(d):
-    """Devolve o motivo de não haver atendimento no dia, ou None se for dia útil."""
     if d.weekday() == 5:
         return "Sábado – sem atendimento"
     if d.weekday() == 6:
@@ -58,7 +47,6 @@ def dia_util(d):
 
 
 def proximo_dia_util(d):
-    """O próprio dia, se for útil; senão o próximo dia útil (ou None se passar do calendário)."""
     while d <= ULTIMO_DIA_CALENDARIO:
         if dia_util(d):
             return d

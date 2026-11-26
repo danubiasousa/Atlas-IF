@@ -8,7 +8,7 @@
     <p>{{ user.usuario }}{% if user.senha_alterada_em %} · senha alterada em {{ user.senha_alterada_em|datahora }}{% endif %}</p>
   </div></div>
 
-  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" data-form-senha autocomplete="off">
+  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" data-form-senha autocomplete="off">{{ csrf_input() }}
     <input type="hidden" name="acao" value="senha">
     <h3>Trocar senha</h3>
     <div class="campo"><label for="c-atual">Senha atual</label>
@@ -23,7 +23,7 @@
     <button type="submit" class="btn-primario enviar">Salvar nova senha</button>
   </form>
 
-  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" autocomplete="off">
+  <form class="card passo" method="post" action="{{ url_for('minha_conta') }}" autocomplete="off">{{ csrf_input() }}
     <input type="hidden" name="acao" value="contatos">
     <h3>Contatos de recuperação</h3>
     {% if user.perfil == 'aluno' %}<p class="nota">O seu e-mail também serve para entrar no sistema, junto com a matrícula.</p>{% endif %}

@@ -10,7 +10,7 @@
 
         {% include "_mensagens_publico.html" %}
 
-        <form method="post" action="{{ url_for('primeiro_acesso') }}" data-form-senha autocomplete="off">
+        <form method="post" action="{{ url_for('primeiro_acesso') }}" data-form-senha autocomplete="off">{{ csrf_input() }}
           {% if troca %}
           <label for="nova">Nova senha</label>
           <div class="campo-senha">

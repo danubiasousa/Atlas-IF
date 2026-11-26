@@ -1,12 +1,8 @@
-"""ATLAS IF – núcleo do sistema (Danúbia).
-
-Configuração do Flask, conexão com o MySQL, criação das tabelas (init_db),
-controle de acesso (decorators) e filtros usados nas telas.
-Os arquivos rotas_*.py importam tudo daqui com:  from nucleo import *
-"""
+import hmac
 import json
 import re
 import os
+import secrets
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 from functools import wraps
@@ -15,6 +11,7 @@ from pathlib import Path
 import pymysql
 from pymysql.cursors import DictCursor
 from flask import Flask, render_template, request, redirect, url_for, session, flash, g, jsonify
+from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from usuarios_seed import USUARIOS_INICIAIS
@@ -64,12 +61,79 @@ except Exception:
 def agora():
     return datetime.now(TZ).replace(tzinfo=None)
 
+
+EXPEDIENTE = ((time(8, 0), time(12, 0)), (time(14, 0), time(18, 0)))
+TEXTO_EXPEDIENTE = "das 8h às 12h e das 14h às 18h"
+
+
+def no_expediente(h):
+    return any(ini <= h < fim for ini, fim in EXPEDIENTE)
+
+
+DURACAO_PADRAO = timedelta(minutes=30)
+
+
+def horario_final(inicio, fim=None):
+    faixa = next((f for i, f in EXPEDIENTE if i <= inicio.time() < f), None)
+    if faixa is None:
+        return inicio
+    limite = datetime.combine(inicio.date(), faixa)
+    if fim and inicio <= fim <= limite:
+        return fim
+    return min(inicio + DURACAO_PADRAO, limite)
+
+def chave_secreta():
+    if os.getenv("SECRET_KEY"):
+        return os.getenv("SECRET_KEY")
+    arquivo = BASE / ".chave_secreta"
+    if arquivo.exists() and arquivo.read_text(encoding="utf-8").strip():
+        return arquivo.read_text(encoding="utf-8").strip()
+    chave = secrets.token_hex(32)
+    arquivo.write_text(chave, encoding="utf-8")
+    return chave
+
+
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "troque-esta-chave-em-producao")
+app.secret_key = chave_secreta()
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+)
+
+
+def csrf_token():
+    if "_csrf" not in session:
+        session["_csrf"] = secrets.token_urlsafe(32)
+    return session["_csrf"]
+
+
+def csrf_input():
+    return Markup('<input type="hidden" name="csrf_token" value="%s">') % csrf_token()
+
+
+@app.before_request
+def conferir_csrf():
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        return None
+    enviado = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or ""
+    esperado = session.get("_csrf") or ""
+    if esperado and hmac.compare_digest(enviado, esperado):
+        return None
+    flash("O formulário expirou ou não veio do ATLAS IF. Confira os dados e envie de novo.", "erro")
+    volta = request.referrer if (request.referrer or "").startswith(request.host_url) else url_for("login")
+    return redirect(volta)
+
+
+@app.after_request
+def cabecalhos_seguranca(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "same-origin")
+    return resp
 
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
-
 
 
 def get_db():
@@ -86,7 +150,6 @@ def close_db(_):
 
 
 def init_db():
-    """Cria banco, tabelas, usuários autorizados e dados de exemplo."""
     con = pymysql.connect(**DB_CONFIG)
     with con.cursor() as cur:
         sql = (BASE / "schema.sql").read_text(encoding="utf-8")
@@ -168,7 +231,7 @@ def init_db():
                 "INSERT INTO atendimentos (aluno_nome, queixa, turma, status, data_hora) VALUES (%s,%s,%s,%s,%s)",
                 [
                     ("Geovane Moura Gomes", "Cefaleia intensa", "2° INFO", "Concluído", dt(hoje, 14, 32)),
-                    ("Danúbia Coelho de Sousa", "Dor abdominal leve", "2° INFO", "Retorno", dt(hoje, 13, 15)),
+                    ("Danúbia Coelho de Sousa", "Dor abdominal leve", "2° INFO", "Retorno", dt(hoje, 15, 15)),
                     ("Sthefany Kailane Lima de Sousa", "Corte na mão direita", "2° INFO", "Concluído", dt(hoje, 11, 48)),
                     ("Maria Aparecida Coelho de Sousa", "Alergia cutânea", "2° INFO", "Encaminhado", dt(hoje, 10, 22)),
                     ("Geovane Moura Gomes", "Dor de garganta", "2° INFO", "Concluído", dt(hoje - timedelta(days=1), 9, 40)),
@@ -300,6 +363,23 @@ def init_db():
                     cur.execute("DELETE FROM codigos_recuperacao WHERE usuario_id = %s", (al["usuario_id"],))
                     cur.execute("DELETE FROM usuarios WHERE id = %s AND perfil = 'aluno'", (al["usuario_id"],))
             cur.execute("INSERT INTO migracoes VALUES ('alunos_nov_2026', %s)", (agora(),))
+
+
+        cur.execute("SELECT 1 FROM migracoes WHERE nome = 'limpa_fora_expediente_2026'")
+        if not cur.fetchone():
+            faixas = " OR ".join(f"(TIME(data_hora) >= '{ini:%H:%M}' AND TIME(data_hora) < '{fim:%H:%M}')"
+                                 for ini, fim in EXPEDIENTE)
+            faixas_txt = " OR ".join(f"(horario >= '{ini:%H:%M}' AND horario < '{fim:%H:%M}')"
+                                     for ini, fim in EXPEDIENTE)
+            cur.execute(f"DELETE FROM procedimentos_odonto WHERE atendimento_id IN "
+                        f"(SELECT id FROM atendimentos WHERE NOT ({faixas}))")
+            n_atend = cur.execute(f"DELETE FROM atendimentos WHERE NOT ({faixas})")
+            n_ret = cur.execute(f"DELETE FROM retornos WHERE NOT ({faixas})")
+            n_sol = cur.execute(f"DELETE FROM solicitacoes WHERE horario IS NOT NULL AND horario <> '' "
+                                f"AND NOT ({faixas_txt})")
+            cur.execute("INSERT INTO migracoes VALUES ('limpa_fora_expediente_2026', %s)", (agora(),))
+            print(f"[ATLAS IF] Registros fora do expediente removidos: {n_atend} atendimento(s), "
+                  f"{n_ret} retorno(s) e {n_sol} agendamento(s).")
     con.close()
 
 
@@ -321,7 +401,6 @@ def login_required(f):
 
 
 def profissional_required(f):
-    """Telas do setor de saúde: o aluno é enviado ao portal dele."""
     @wraps(f)
     def wrapper(*a, **kw):
         if "user_id" not in session:
@@ -333,7 +412,6 @@ def profissional_required(f):
 
 
 def aluno_required(f):
-    """Portal do aluno: o profissional é enviado ao painel dele."""
     @wraps(f)
     def wrapper(*a, **kw):
         if "user_id" not in session:
@@ -345,7 +423,6 @@ def aluno_required(f):
 
 
 def supervisor_required(f):
-    """Gestão de usuários: só profissionais com nível Supervisor."""
     @wraps(f)
     @profissional_required
     def wrapper(*a, **kw):
@@ -357,9 +434,6 @@ def supervisor_required(f):
 
 
 def criar_login_aluno(cur, aluno_id, matricula, nome, nascimento=None):
-    """Login do aluno: usuário = matrícula (minúscula); senha inicial = data de nascimento (ddmmaaaa).
-
-    Devolve a senha inicial (ou None se o login já existia)."""
     usuario = matricula.lower()
     cur.execute("SELECT id FROM usuarios WHERE usuario = %s", (usuario,))
     row = cur.fetchone()
@@ -376,7 +450,6 @@ def criar_login_aluno(cur, aluno_id, matricula, nome, nascimento=None):
     return senha
 
 
-
 @app.template_filter("iniciais")
 def iniciais(nome):
     p = nome.split()
@@ -390,7 +463,6 @@ def primeiro_nome(nome):
 
 @app.template_filter("horario")
 def horario_fmt(h):
-    """'08:00' -> '8h00'"""
     try:
         hh, mm = str(h).split(":")[:2]
         return f"{int(hh)}h{mm}"
@@ -410,11 +482,11 @@ def quando(d):
     return f"{prefixo} {d:%H:%M}"
 
 
-
 @app.context_processor
 def globais():
     d = agora()
-    return {"data_curta": f"{d.day:02d} de {MESES[d.month - 1][:3]}. de {d.year}"}
+    return {"data_curta": f"{d.day:02d} de {MESES[d.month - 1][:3]}. de {d.year}",
+            "csrf_token": csrf_token, "csrf_input": csrf_input, "texto_expediente": TEXTO_EXPEDIENTE}
 
 
 @app.template_filter("dataBR")
@@ -425,4 +497,3 @@ def data_br(d):
 @app.template_filter("datahora")
 def datahora(d):
     return d.strftime("%d/%m/%Y %H:%M")
-

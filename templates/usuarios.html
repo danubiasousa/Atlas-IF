@@ -34,7 +34,7 @@
             data-id="{{ u.id }}" data-nome="{{ u.nome }}" data-email="{{ u.usuario }}" data-cargo="{{ u.cargo or '' }}"
             data-campus="{{ u.campus or '' }}" data-nivel="{{ u.nivel }}" data-siape="{{ u.siape or '' }}">Editar</button>
           {% if u.id != session['user_id'] %}
-          <form method="post" action="{{ url_for('status_usuario', uid=u.id) }}" data-confirma="{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?">
+          <form method="post" action="{{ url_for('status_usuario', uid=u.id) }}" data-confirma="{{ 'Desativar' if u.ativo else 'Reativar' }} {{ u.nome }}?">{{ csrf_input() }}
             <button type="submit" class="{{ 'btn-perigo' if u.ativo else 'btn-sec' }} peq">{{ 'Desativar' if u.ativo else 'Reativar' }}</button>
           </form>
           {% endif %}
@@ -67,7 +67,7 @@
 {% endif %}
 
 <dialog id="modal-usuario" class="modal">
-  <form method="post" id="form-usuario" action="{{ url_for('novo_usuario') }}" autocomplete="off">
+  <form method="post" id="form-usuario" action="{{ url_for('novo_usuario') }}" autocomplete="off">{{ csrf_input() }}
     <header><h3 id="usr-titulo">Novo Usuário</h3><button type="button" class="fechar" aria-label="Fechar">×</button></header>
     <div class="modal-corpo">
       <div class="campo"><label for="u-nome">Nome completo</label><input type="text" id="u-nome" name="nome" required maxlength="120" placeholder="Nome do profissional"></div>
