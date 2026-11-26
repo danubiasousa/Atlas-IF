@@ -6,7 +6,7 @@
 
         {% include "_mensagens_publico.html" %}
 
-        <form method="post" action="{{ url_for('login') }}">
+        <form method="post" action="{{ url_for('login') }}">{{ csrf_input() }}
           <label for="usuario">Usuário</label>
           <div class="campo-sugestoes">
           <input type="text" id="usuario" name="usuario" value="{{ usuario }}" placeholder="nome.sobrenome@ifpi.edu.br" data-sugestoes="{{ url_for('sugestoes_usuario') }}" aria-autocomplete="list"

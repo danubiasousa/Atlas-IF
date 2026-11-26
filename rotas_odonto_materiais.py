@@ -1,5 +1,5 @@
-"""Odontograma e controle de materiais e medicamentos (Sthefany)."""
 from nucleo import *  
+from modelos import Estoque, select, sessao_bd
 
 
 ODONTO_CARGOS = ("Dentista", "Técnico em Saúde Bucal")
@@ -22,7 +22,6 @@ def usa_odonto():
 
 
 def ler_odonto(texto, data_padrao):
-    """Valida o JSON de procedimentos do odontograma enviado pelo formulário."""
     try:
         itens = json.loads(texto or "[]")
     except ValueError:
@@ -52,6 +51,8 @@ def ler_odonto(texto, data_padrao):
 @app.route("/api/alunos/<int:aluno_id>/odonto")
 @profissional_required
 def api_odonto(aluno_id):
+    if not usa_odonto():
+        return jsonify({"erro": "Acesso restrito à odontologia."}), 403
     with get_db().cursor() as cur:
         cur.execute("SELECT id, dente, procedimento, faces, situacao, data, observacoes FROM procedimentos_odonto "
                     "WHERE aluno_id = %s ORDER BY data DESC, id DESC", (aluno_id,))
@@ -61,10 +62,7 @@ def api_odonto(aluno_id):
     return jsonify(linhas)
 
 
-
-
 def classificar_estoque(qtd, minimo):
-    """Normal: qtd >= mínimo · Crítico: menos de 50% do mínimo · Baixo: o resto."""
     if not minimo or qtd >= minimo:
         return "Normal", 100
     pct = int(qtd / minimo * 100 + 0.5)
@@ -81,6 +79,8 @@ def ler_material(f):
         return None, "Informe a quantidade atual e o estoque mínimo (números inteiros)."
     if qtd < 0 or minimo < 0:
         return None, "Quantidade e estoque mínimo não podem ser negativos."
+    if qtd > 100000 or minimo > 100000:
+        return None, "Quantidade e estoque mínimo: no máximo 100.000."
     try:
         validade = datetime.strptime(f.get("validade", ""), "%Y-%m").date()
     except ValueError:
@@ -96,9 +96,8 @@ def ler_material(f):
 @profissional_required
 def materiais():
     q, cat, status = (request.args.get(k, "").strip() for k in ("q", "categoria", "status"))
-    with get_db().cursor() as cur:
-        cur.execute("SELECT * FROM estoque ORDER BY id")
-        itens = cur.fetchall()
+    with sessao_bd() as bd:
+        itens = [it.como_dict() for it in bd.scalars(select(Estoque).order_by(Estoque.id))]
     contagem = {"Crítico": 0, "Baixo": 0, "Normal": 0}
     for it in itens:
         it["status"], it["pct"] = classificar_estoque(it["quantidade"], it["ideal"])
@@ -119,9 +118,10 @@ def novo_material():
     if erro:
         flash(erro, "erro")
         return redirect(url_for("materiais"))
-    with get_db().cursor() as cur:
-        cur.execute(f"INSERT INTO estoque ({', '.join(d)}) VALUES ({', '.join(['%s'] * len(d))})", list(d.values()))
-    flash(f"Item “{d['item']}” cadastrado com sucesso.")
+    with sessao_bd() as bd:
+        bd.add(Estoque(**d))
+        bd.commit()
+    flash(f"Item “{d['item']}” cadastrado com sucesso.", "ok")
     return redirect(url_for("materiais"))
 
 
@@ -132,21 +132,28 @@ def editar_material(item_id):
     if erro:
         flash(erro, "erro")
         return redirect(url_for("materiais"))
-    with get_db().cursor() as cur:
-        cur.execute(f"UPDATE estoque SET {', '.join(c + '=%s' for c in d)} WHERE id=%s", [*d.values(), item_id])
-    flash(f"Item “{d['item']}” atualizado.")
+    with sessao_bd() as bd:
+        item = bd.get(Estoque, item_id)
+        if item is None:
+            flash("Item não encontrado.", "erro")
+            return redirect(url_for("materiais"))
+        for campo, valor in d.items():
+            setattr(item, campo, valor)
+        bd.commit()
+    flash(f"Item “{d['item']}” atualizado.", "ok")
     return redirect(url_for("materiais"))
 
 
 @app.route("/materiais/<int:item_id>/excluir", methods=["POST"])
 @profissional_required
 def excluir_material(item_id):
-    with get_db().cursor() as cur:
-        cur.execute("SELECT item FROM estoque WHERE id=%s", (item_id,))
-        row = cur.fetchone()
-        if row:
-            cur.execute("DELETE FROM estoque WHERE id=%s", (item_id,))
-            flash(f"Item “{row['item']}” excluído.")
+    with sessao_bd() as bd:
+        item = bd.get(Estoque, item_id)
+        if item is None:
+            flash("Item não encontrado.", "erro")
+            return redirect(url_for("materiais"))
+        nome = item.item
+        bd.delete(item)
+        bd.commit()
+    flash(f"Item “{nome}” excluído.", "ok")
     return redirect(url_for("materiais"))
-
-

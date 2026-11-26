@@ -35,12 +35,21 @@
     <p><span>Profissional</span><b>{{ r.prof_nome or '—' }}{% if r.prof_cargo %} – {{ r.prof_cargo }}{% endif %}</b></p>
     <p><span>Veio em horário de aula</span><b>{{ 'Sim' if r.em_aula else 'Não' }}
       {% if r.em_aula %}<a class="link-decl" href="{{ url_for('declaracao', atendimento_id=r.id) }}" target="_blank">{{ icon('file', 14) }} Declaração de comparecimento</a>{% endif %}</b></p>
-    {% for rotulo, v in [('Histórico', r.historico), ('Alergias', r.alergias), ('Medicamentos em uso', r.medicamentos_uso), ('Doenças preexistentes', r.doencas), ('Encaminhado por', r.encaminhado_por), ('Procedimentos', r.procedimentos), ('Medicamentos administrados', r.medicamentos_adm), ('Orientações', r.orientacoes), ('Observações', r.observacoes)] %}
+    {% for rotulo, v in [('Histórico', r.historico), ('Alergias', r.alergias), ('Medicamentos em uso', r.medicamentos_uso), ('Doenças preexistentes', r.doencas), ('Encaminhado por', r.encaminhado_por), ('Procedimentos', r.procedimentos if usa_odonto or not r.odonto), ('Medicamentos administrados', r.medicamentos_adm), ('Orientações', r.orientacoes), ('Observações', r.observacoes)] %}
       {% if v %}<p><span>{{ rotulo }}</span><b>{{ v }}</b></p>{% endif %}
     {% endfor %}
     {% set sv = [('PA', r.pressao, 'mmHg'), ('FC', r.fc, 'bpm'), ('FR', r.fr, 'irpm'), ('Temp.', r.temperatura, '°C'), ('Sat. O₂', r.saturacao, '%'), ('Peso', r.peso, 'kg'), ('Glicemia', r.glicemia, 'mg/dL')] %}
     {% if sv|selectattr(1)|list %}
     <p><span>Sinais vitais</span><b class="mono">{% for n, v, u in sv if v %}{{ n }} {{ v }} {{ u }}{{ ' · ' if not loop.last }}{% endfor %}</b></p>
+    {% endif %}
+    {% if r.imc %}<p><span>IMC</span><b class="mono">{{ r.imc }}</b></p>{% endif %}
+    {% if session['user_id'] == r.profissional_id or session['nivel'] == 'Supervisor' %}
+    <div class="acoes-hist">
+      <a class="btn-sec peq" href="{{ url_for('editar_atendimento', atendimento_id=r.id) }}">Editar</a>
+      <form method="post" action="{{ url_for('excluir_atendimento', atendimento_id=r.id) }}"
+            onsubmit='return confirm({{ ("Excluir o atendimento " ~ r.codigo ~ " de " ~ r.aluno_nome ~ "? Essa ação não pode ser desfeita.")|tojson }})'>{{ csrf_input() }}
+        <button type="submit" class="btn-excluir peq">Excluir</button></form>
+    </div>
     {% endif %}
   </div>
 </details>
