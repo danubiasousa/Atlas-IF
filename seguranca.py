@@ -1,4 +1,3 @@
-"""Senhas iniciais, política de senha e envio de códigos de recuperação."""
 import json
 import os
 import re
@@ -19,18 +18,14 @@ REGRAS_SENHA = [
 ]
 
 
-
 SENHA_PADRAO_SERVIDOR = "setorsaude2026"
 
 
 def senha_aluno(data_nascimento, matricula):
-    """Senha inicial do aluno: data de nascimento tudo junto (19042009).
-    Sem data de nascimento cadastrada, usa a matrícula."""
     return data_nascimento.strftime("%d%m%Y") if data_nascimento else matricula
 
 
 def erros_senha(senha, usuario=""):
-    """Lista os requisitos que a senha não cumpre (lista vazia = senha válida)."""
     erros = []
     if len(senha) < 6:
         erros.append("ter no mínimo 6 caracteres")
@@ -54,14 +49,12 @@ def mensagem_erros(erros):
     return "A senha precisa " + ", ".join(erros) + "." if erros else ""
 
 
-
 def normalizar_email(texto):
     e = (texto or "").strip().lower()
     return e if re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e) and len(e) <= 120 else None
 
 
 def normalizar_telefone(texto):
-    """Aceita (89)99999-9999, 89999999999, +55 89 ... → '(89)99999-9999'."""
     d = re.sub(r"\D", "", texto or "")
     if d.startswith("55") and len(d) in (12, 13):
         d = d[2:]
@@ -81,15 +74,11 @@ def mascarar_telefone(t):
     return f"({d[:2]})•••••-{d[-4:]}"
 
 
-
 def gerar_codigo():
     return f"{secrets.randbelow(1_000_000):06d}"
 
 
 def enviar_email(destino, assunto, texto):
-    """Envia por SMTP se configurado (variáveis SMTP_*); senão mostra no terminal.
-
-    Devolve "enviado", "simulado" (só no terminal) ou None (falhou)."""
     host = os.getenv("SMTP_HOST")
     if not host:
         print(f"\n[ATLAS IF · e-mail simulado] Para: {destino}\n{assunto}\n{texto}\n", flush=True)
@@ -111,11 +100,6 @@ def enviar_email(destino, assunto, texto):
 
 
 def enviar_sms(telefone, texto):
-    """Envia via webhook do provedor de SMS (SMS_WEBHOOK_URL); senão mostra no terminal.
-
-    O webhook recebe um POST JSON {"telefone": "+5589999999999", "mensagem": "..."}.
-    Use o serviço que o campus contratar (Twilio, Zenvia, etc.).
-    """
     url = os.getenv("SMS_WEBHOOK_URL")
     numero = "+55" + re.sub(r"\D", "", telefone)
     if not url:

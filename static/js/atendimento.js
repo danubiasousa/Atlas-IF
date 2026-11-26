@@ -316,5 +316,15 @@
     el.setCustomValidity('');
   }));
 
+  const hora = document.getElementById('hora');
+  const conferirHora = () => {
+    const [h, m] = hora.value.split(':').map(Number);
+    const min = h * 60 + m;
+    const ok = !hora.value || (min >= 8 * 60 && min < 12 * 60) || (min >= 14 * 60 && min < 18 * 60);
+    hora.setCustomValidity(ok ? '' : 'Fora do expediente: o setor atende das 8h às 12h e das 14h às 18h.');
+  };
+  hora.addEventListener('input', conferirHora);
+  conferirHora();
+
   mostrar(0);
 })();
